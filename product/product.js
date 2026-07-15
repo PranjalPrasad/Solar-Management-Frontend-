@@ -22,7 +22,7 @@
     document.getElementById('logout-btn')?.addEventListener('click', async (e) => {
         e.preventDefault();
         if (typeof logout === 'function') await logout();
-        else window.location.href = '/login';
+        else window.location.href = '../index.html';
     });
 
     // ---------------------------------------------------

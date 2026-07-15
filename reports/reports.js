@@ -88,7 +88,7 @@ document.addEventListener('click', (e) => {
 // ---------- Logout ----------
 document.getElementById('logout-btn')?.addEventListener('click', (e) => {
     e.preventDefault();
-    window.location.href = '/login.html';
+    window.location.href = '../index.html';
 });
 
 // ---------- Toast helper ----------
