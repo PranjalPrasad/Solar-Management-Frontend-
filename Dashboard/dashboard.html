@@ -32,46 +32,31 @@
     <nav class="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
 
         <!-- DASHBOARD -->
-        <a href="dashboard.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm nav-active">
+        <a href="/Dashboard/dashboard.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm nav-active">
             <span class="nav-icon text-base flex-shrink-0 w-5"><i class="fas fa-chart-pie"></i></span>
             <span class="nav-label">Dashboard</span>
         </a>
 
         <!-- QUOTATION TEMPLATE -->
-        <div class="nav-group">
-            <div class="nav-group-header flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm">
-                <div class="flex items-center gap-3">
-                    <span class="nav-icon text-base flex-shrink-0 w-5"><i class="fas fa-file-invoice"></i></span>
-                    <span class="nav-label">Quotation Template</span>
-                </div>
-                <i class="fas fa-chevron-down text-xs transition-transform duration-200"></i>
-            </div>
-            <div class="nav-group-items ml-7 space-y-0.5 mt-1 hidden">
-                <a href="quotations.html" class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-xs cursor-pointer">
-                    <span class="nav-icon text-sm flex-shrink-0 w-4"><i class="fas fa-list"></i></span>
-                    <span class="nav-label">All Quotations</span>
-                </a>
-                <a href="quotation-new.html" class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-xs cursor-pointer">
-                    <span class="nav-icon text-sm flex-shrink-0 w-4"><i class="fas fa-plus"></i></span>
-                    <span class="nav-label">New Quotation</span>
-                </a>
-            </div>
-        </div>
+        <a href="/quotation/quotation.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg  text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm">
+            <span class="nav-icon text-base flex-shrink-0 w-5"><i class="fas fa-file-invoice-dollar"></i></span>
+            <span class="nav-label">Quotation Management</span>
+        </a>
 
         <!-- PRODUCT MANAGEMENT -->
-        <a href="products.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm">
+        <a href="/product/product.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm">
             <span class="nav-icon text-base flex-shrink-0 w-5"><i class="fas fa-solar-panel"></i></span>
             <span class="nav-label">Product Management</span>
         </a>
 
         <!-- VENDOR MANAGEMENT -->
-        <a href="vendors.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm">
+        <a href="/vendor/vendor.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm">
             <span class="nav-icon text-base flex-shrink-0 w-5"><i class="fas fa-truck-loading"></i></span>
             <span class="nav-label">Vendor Management</span>
         </a>
 
         <!-- REPORTS -->
-        <a href="reports.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm">
+        <a href="/reports/reports.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm">
             <span class="nav-icon text-base flex-shrink-0 w-5"><i class="fas fa-chart-bar"></i></span>
             <span class="nav-label">Reports Management</span>
         </a>
@@ -145,11 +130,7 @@
                     <i class="fas fa-chevron-down text-[10px] text-[#4B5694]"></i>
                 </button>
                 <div id="user-menu" class="hidden absolute right-0 top-full mt-1 w-44 bg-[#FFFCFC] border border-[#4B5694]/20 rounded-xl shadow-lg py-1 z-50">
-                    <a href="profile.html" class="flex items-center gap-2 px-4 py-2 text-xs text-[#111844] hover:bg-[#7288AE]/10 transition-colors">
-                        <i class="fas fa-user-circle w-4"></i> My Profile
-                    </a>
-                    <div class="border-t border-[#4B5694]/10 my-1"></div>
-                    <a href="login.html" id="logout-btn" class="flex items-center gap-2 px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors">
+                    <a href="/index.html" id="logout-btn" class="flex items-center gap-2 px-4 py-2 text-xs text-red-600 hover:bg-red-50 transition-colors">
                         <i class="fas fa-sign-out-alt w-4"></i> Logout
                     </a>
                 </div>
