@@ -44,6 +44,7 @@ overlay?.addEventListener('click', closeMobileSidebar);
 window.addEventListener('resize', () => {
     updateChevron();
     if (window.innerWidth >= 1024) closeMobileSidebar();
+    if (window.trendChart) window.trendChart.resize();
 });
 
 updateChevron();
@@ -99,7 +100,7 @@ Chart.defaults.font.size = 11;
 const trendMonths = ['Jan-25', 'Feb-25', 'Mar-25', 'Apr-25', 'May-25', 'Jun-25'];
 const trendCounts = [25, 31, 42, 38, 45, 52];
 
-new Chart(document.getElementById('chartQuotationTrend'), {
+window.trendChart = new Chart(document.getElementById('chartQuotationTrend'), {
     type: 'line',
     data: {
         labels: trendMonths,
@@ -116,6 +117,7 @@ new Chart(document.getElementById('chartQuotationTrend'), {
     },
     options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: {
             legend: { display: false },
             tooltip: {
@@ -135,8 +137,8 @@ new Chart(document.getElementById('chartQuotationTrend'), {
     }
 });
 
-/* ---------------- Recent Quotations table ---------------- */
-const quotations = [
+/* ---------------- Recent Quotations data ---------------- */
+let quotations = [
     { no: 'SQ-1001', customer: 'Amit Sharma', size: '3 kW', amount: 165000, status: 'Pending', date: '2026-07-15' },
     { no: 'SQ-1000', customer: 'Priya Enterprises', size: '10 kW', amount: 540000, status: 'Accepted', date: '2026-07-14' },
     { no: 'SQ-0999', customer: 'Ravi Constructions', size: '5 kW', amount: 275000, status: 'Rejected', date: '2026-07-14' },
@@ -173,7 +175,6 @@ const tbody = document.getElementById('quotationsTbody');
 const paginationControls = document.getElementById('paginationControls');
 const rowsRangeLabel = document.getElementById('rowsRangeLabel');
 const rowsPerPageSelect = document.getElementById('rowsPerPage');
-const rowActionDropdown = document.getElementById('rowActionDropdown');
 
 function sortedQuotations() {
     const list = [...quotations];
@@ -189,6 +190,19 @@ function sortedQuotations() {
     return list;
 }
 
+/* Inline action icon buttons — one icon per action, always in a single
+   horizontal row, small enough that the table never needs to scroll. */
+function actionIconsHtml(no) {
+    return `
+        <div class="row-actions">
+            <button class="action-icon-btn icon-view" data-action="view" data-no="${no}" title="View"><i class="fas fa-eye"></i></button>
+            <button class="action-icon-btn icon-edit" data-action="edit" data-no="${no}" title="Edit"><i class="fas fa-pen"></i></button>
+            <button class="action-icon-btn icon-print" data-action="print" data-no="${no}" title="Print"><i class="fas fa-print"></i></button>
+            <button class="action-icon-btn icon-pdf" data-action="pdf" data-no="${no}" title="Download PDF"><i class="fas fa-file-pdf"></i></button>
+            <button class="action-icon-btn icon-duplicate" data-action="duplicate" data-no="${no}" title="Duplicate"><i class="fas fa-copy"></i></button>
+        </div>`;
+}
+
 function renderTable() {
     const data = sortedQuotations();
     const totalRows = data.length;
@@ -198,19 +212,15 @@ function renderTable() {
     const start = (currentPage - 1) * rowsPerPage;
     const pageRows = data.slice(start, start + rowsPerPage);
 
-    tbody.innerHTML = pageRows.map((q, i) => `
-        <tr data-idx="${start + i}">
-            <td class="font-medium">${q.no}</td>
-            <td>${q.customer}</td>
-            <td>${q.size}</td>
-            <td>${formatINR(q.amount)}</td>
-            <td><span class="pill ${statusPillClass[q.status]}">${q.status}</span></td>
-            <td>${formatDate(q.date)}</td>
-            <td class="text-center">
-                <button class="action-menu-btn" data-row-actions="${start + i}" title="Actions">
-                    <i class="fas fa-ellipsis-vertical"></i>
-                </button>
-            </td>
+    tbody.innerHTML = pageRows.map((q) => `
+        <tr data-no="${q.no}">
+            <td data-label="Quotation No." class="font-medium">${q.no}</td>
+            <td data-label="Customer">${q.customer}</td>
+            <td data-label="System Size">${q.size}</td>
+            <td data-label="Amount">${formatINR(q.amount)}</td>
+            <td data-label="Status"><span class="pill ${statusPillClass[q.status]}">${q.status}</span></td>
+            <td data-label="Date">${formatDate(q.date)}</td>
+            <td data-label="Actions">${actionIconsHtml(q.no)}</td>
         </tr>
     `).join('');
 
@@ -272,40 +282,195 @@ rowsPerPageSelect?.addEventListener('change', () => {
     renderTable();
 });
 
-/* ---------------- Row actions dropdown ---------------- */
-let activeRowIdx = null;
+/* ===========================================================
+   Row actions: View (read-only) / Edit (selective fields) /
+   Print / Download PDF / Duplicate
+   =========================================================== */
+const quoteModal = document.getElementById('quoteModal');
+const modalTitle = document.getElementById('modalTitle');
+const modalSubtitle = document.getElementById('modalSubtitle');
+const modalCloseBtn = document.getElementById('modalCloseBtn');
+const modalCancelBtn = document.getElementById('modalCancelBtn');
+const modalSaveBtn = document.getElementById('modalSaveBtn');
+const quoteForm = document.getElementById('quoteForm');
 
-tbody.addEventListener('click', (e) => {
-    const actionBtn = e.target.closest('[data-row-actions]');
-    if (actionBtn) {
-        e.stopPropagation();
-        activeRowIdx = parseInt(actionBtn.getAttribute('data-row-actions'), 10);
-        const rect = actionBtn.getBoundingClientRect();
-        rowActionDropdown.style.top = `${window.scrollY + rect.bottom + 4}px`;
-        rowActionDropdown.style.left = `${window.scrollX + rect.right - 160}px`;
-        rowActionDropdown.classList.remove('hidden');
+const fldNo = document.getElementById('fldNo');
+const fldCustomer = document.getElementById('fldCustomer');
+const fldSize = document.getElementById('fldSize');
+const fldAmount = document.getElementById('fldAmount');
+const fldStatus = document.getElementById('fldStatus');
+const fldDate = document.getElementById('fldDate');
+
+// Fields the "Edit" mode is allowed to change. Everything else always stays read-only.
+const EDITABLE_FIELD_IDS = ['fldCustomer', 'fldSize', 'fldAmount', 'fldStatus'];
+
+let modalMode = 'view'; // 'view' | 'edit'
+let modalQuoteNo = null;
+
+function findQuote(no) {
+    return quotations.find(q => q.no === no);
+}
+
+function fillForm(q) {
+    fldNo.value = q.no;
+    fldCustomer.value = q.customer;
+    fldSize.value = q.size;
+    fldAmount.value = q.amount;
+    fldStatus.value = q.status;
+    fldDate.value = q.date;
+}
+
+function openModal(no, mode) {
+    const q = findQuote(no);
+    if (!q) return;
+    modalMode = mode;
+    modalQuoteNo = no;
+    fillForm(q);
+
+    if (mode === 'view') {
+        modalTitle.textContent = 'Quotation Details';
+        modalSubtitle.textContent = `${q.no} · Read-only`;
+        quoteForm.querySelectorAll('.field-input').forEach(el => el.disabled = true);
+        modalSaveBtn.classList.add('hidden');
+        modalCancelBtn.textContent = 'Close';
+    } else {
+        modalTitle.textContent = 'Edit Quotation';
+        modalSubtitle.textContent = `${q.no} · Customer, size, amount & status only`;
+        quoteForm.querySelectorAll('.field-input').forEach(el => {
+            el.disabled = !EDITABLE_FIELD_IDS.includes(el.id);
+        });
+        modalSaveBtn.classList.remove('hidden');
+        modalCancelBtn.textContent = 'Cancel';
+    }
+
+    quoteModal.classList.remove('hidden');
+}
+
+function closeModal() {
+    quoteModal.classList.add('hidden');
+    modalQuoteNo = null;
+}
+
+modalCloseBtn.addEventListener('click', closeModal);
+modalCancelBtn.addEventListener('click', closeModal);
+quoteModal.addEventListener('click', (e) => { if (e.target === quoteModal) closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !quoteModal.classList.contains('hidden')) closeModal(); });
+
+modalSaveBtn.addEventListener('click', () => {
+    const q = findQuote(modalQuoteNo);
+    if (!q) return;
+    q.customer = fldCustomer.value.trim() || q.customer;
+    q.size = fldSize.value.trim() || q.size;
+    q.amount = parseFloat(fldAmount.value) || q.amount;
+    q.status = fldStatus.value;
+    renderTable();
+    closeModal();
+    showToast(`Saved changes to ${q.no}`);
+});
+
+/* ---- Print: fills the hidden print slip and opens the browser print dialog ---- */
+function printQuotation(no) {
+    const q = findQuote(no);
+    if (!q) return;
+    document.getElementById('pNo').textContent = q.no;
+    document.getElementById('pCustomer').textContent = q.customer;
+    document.getElementById('pSize').textContent = q.size;
+    document.getElementById('pAmount').textContent = formatINR(q.amount);
+    document.getElementById('pStatus').textContent = q.status;
+    document.getElementById('pDate').textContent = formatDate(q.date);
+    document.getElementById('pGenDate').textContent = new Date().toLocaleString('en-IN');
+    window.print();
+}
+
+/* ---- Download PDF: generates a real .pdf file client-side with jsPDF ---- */
+function downloadQuotationPdf(no) {
+    const q = findQuote(no);
+    if (!q) return;
+    if (!window.jspdf) {
+        showToast('PDF library failed to load — check your connection');
         return;
     }
-    const row = e.target.closest('tr[data-idx]');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+
+    doc.setFontSize(16);
+    doc.setTextColor(17, 24, 68);
+    doc.text('Solar Quotation Management', 40, 50);
+    doc.setFontSize(11);
+    doc.setTextColor(75, 86, 148);
+    doc.text('Quotation Slip', 40, 68);
+    doc.setDrawColor(17, 24, 68);
+    doc.line(40, 78, 555, 78);
+
+    const rows = [
+        ['Quotation No.', q.no],
+        ['Customer', q.customer],
+        ['System Size', q.size],
+        ['Amount', formatINR(q.amount)],
+        ['Status', q.status],
+        ['Date', formatDate(q.date)],
+    ];
+
+    let y = 110;
+    doc.setFontSize(11);
+    rows.forEach(([label, value]) => {
+        doc.setTextColor(75, 86, 148);
+        doc.text(label, 40, y);
+        doc.setTextColor(17, 24, 68);
+        doc.text(String(value), 220, y);
+        y += 26;
+    });
+
+    doc.setFontSize(9);
+    doc.setTextColor(114, 136, 174);
+    doc.text(`Generated on ${new Date().toLocaleString('en-IN')}`, 40, y + 20);
+
+    doc.save(`${q.no}.pdf`);
+    showToast(`Downloaded ${q.no}.pdf`);
+}
+
+/* ---- Duplicate: clones the quotation with a fresh number and inserts it at the top ---- */
+function duplicateQuotation(no) {
+    const q = findQuote(no);
+    if (!q) return;
+
+    const maxNum = quotations.reduce((max, item) => {
+        const n = parseInt(item.no.replace(/\D/g, ''), 10);
+        return isNaN(n) ? max : Math.max(max, n);
+    }, 0);
+    const newNo = `SQ-${String(maxNum + 1).padStart(4, '0')}`;
+
+    const copy = {
+        ...q,
+        no: newNo,
+        status: 'Pending',
+        date: new Date().toISOString().slice(0, 10),
+    };
+    quotations.unshift(copy);
+    sortKey = 'date'; sortDir = 'desc'; currentPage = 1;
+    renderTable();
+    showToast(`Duplicated as ${newNo}`);
+}
+
+/* ---- Wire up the action icons + row click ---- */
+tbody.addEventListener('click', (e) => {
+    const actionBtn = e.target.closest('[data-action]');
+    if (actionBtn) {
+        e.stopPropagation();
+        const no = actionBtn.getAttribute('data-no');
+        const action = actionBtn.getAttribute('data-action');
+        if (action === 'view') openModal(no, 'view');
+        else if (action === 'edit') openModal(no, 'edit');
+        else if (action === 'print') printQuotation(no);
+        else if (action === 'pdf') downloadQuotationPdf(no);
+        else if (action === 'duplicate') duplicateQuotation(no);
+        return;
+    }
+    const row = e.target.closest('tr[data-no]');
     if (row) {
-        const idx = parseInt(row.getAttribute('data-idx'), 10);
-        const q = sortedQuotations()[idx];
-        showToast(`Opening ${q.no}…`);
+        openModal(row.getAttribute('data-no'), 'view');
     }
 });
-
-rowActionDropdown.querySelectorAll('a[data-action]').forEach(link => {
-    link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const q = sortedQuotations()[activeRowIdx];
-        const action = link.getAttribute('data-action');
-        const labels = { view: 'Viewing', edit: 'Editing', pdf: 'Downloading PDF for', print: 'Printing', duplicate: 'Duplicating' };
-        showToast(`${labels[action]} ${q.no}`);
-        rowActionDropdown.classList.add('hidden');
-    });
-});
-
-document.addEventListener('click', () => rowActionDropdown.classList.add('hidden'));
 
 /* ---------------- Toast helper ---------------- */
 function showToast(message) {

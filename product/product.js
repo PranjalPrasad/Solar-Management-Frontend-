@@ -35,34 +35,43 @@
     const mobileToggle = document.getElementById('mobile-sidebar-toggle');
     const overlay = document.getElementById('sidebar-overlay');
 
-    function openMobileSidebar() {
-        sidebar.classList.add('open');
-        overlay.classList.add('show');
-    }
-    function closeMobileSidebar() {
-        sidebar.classList.remove('open');
-        overlay.classList.remove('show');
+    function updateChevron() {
+        const chevronIcon = sidebarToggle?.querySelector('i');
+        if (!chevronIcon) return;
+        chevronIcon.classList.remove('fa-chevron-left', 'fa-chevron-right');
+        chevronIcon.classList.add(isCollapsed ? 'fa-chevron-right' : 'fa-chevron-left');
     }
 
-    mobileToggle?.addEventListener('click', () => {
-        sidebar.classList.contains('open') ? closeMobileSidebar() : openMobileSidebar();
-    });
+    function openMobileSidebar() {
+        sidebar?.classList.add('sidebar-open');
+        overlay?.classList.remove('hidden');
+    }
+    function closeMobileSidebar() {
+        sidebar?.classList.remove('sidebar-open');
+        overlay?.classList.add('hidden');
+    }
 
     sidebarToggle?.addEventListener('click', () => {
         if (window.innerWidth < 1024) {
-            closeMobileSidebar();
-            return;
+            sidebar.classList.contains('sidebar-open') ? closeMobileSidebar() : openMobileSidebar();
+        } else {
+            isCollapsed = !isCollapsed;
+            sidebar.classList.toggle('sidebar-collapsed', isCollapsed);
+            mainWrapper.classList.toggle('main-expanded', isCollapsed);
+            mainWrapper.style.marginLeft = isCollapsed ? '68px' : '';
         }
-        isCollapsed = !isCollapsed;
-        sidebar.classList.toggle('collapsed', isCollapsed);
-        mainWrapper.classList.toggle('expanded', isCollapsed);
+        updateChevron();
     });
 
+    mobileToggle?.addEventListener('click', openMobileSidebar);
     overlay?.addEventListener('click', closeMobileSidebar);
 
     window.addEventListener('resize', () => {
+        updateChevron();
         if (window.innerWidth >= 1024) closeMobileSidebar();
     });
+
+    updateChevron();
 
     // Notification / user dropdowns
     const notifBtn = document.getElementById('notif-btn');

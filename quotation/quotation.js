@@ -10,42 +10,54 @@ const COMPANY = {
     email: 'sales@solartechrenewables.in',
     gstin: '27ABCDE1234F1Z5',
     state: 'Maharashtra',
-    logo: 'logo.svg'
+    logo: '../img/logo.png'
 };
 
-/* ---------------- Sidebar / Topbar chrome (fixed + collapsible, mirrors reference dashboard) ---------------- */
+/* ---------------- Sidebar / Topbar chrome (fixed + collapsible) ---------------- */
+let isCollapsed = false;
 const sidebar = document.getElementById('sidebar');
 const mainWrapper = document.getElementById('main-wrapper');
 const sidebarToggle = document.getElementById('sidebar-toggle');
-const mobileToggle = document.getElementById('mobile-toggle');
-const sidebarOverlay = document.getElementById('sidebar-overlay');
+const overlay = document.getElementById('sidebar-overlay');
+const mobileMenuBtn = document.getElementById('mobile-menu-btn');
 
-let isCollapsed = false;
+function updateChevron() {
+    const chevronIcon = sidebarToggle?.querySelector('i');
+    if (!chevronIcon) return;
+    chevronIcon.classList.remove('fa-chevron-left', 'fa-chevron-right');
+    chevronIcon.classList.add(isCollapsed ? 'fa-chevron-right' : 'fa-chevron-left');
+}
+
+function openMobileSidebar() {
+    sidebar?.classList.add('sidebar-open');
+    overlay?.classList.remove('hidden');
+}
+function closeMobileSidebar() {
+    sidebar?.classList.remove('sidebar-open');
+    overlay?.classList.add('hidden');
+}
 
 sidebarToggle?.addEventListener('click', () => {
     if (window.innerWidth < 1024) {
-        sidebar.classList.toggle('open');
-        sidebarOverlay.classList.toggle('show');
+        sidebar.classList.contains('sidebar-open') ? closeMobileSidebar() : openMobileSidebar();
     } else {
         isCollapsed = !isCollapsed;
-        sidebar.classList.toggle('collapsed', isCollapsed);
-        mainWrapper.classList.toggle('expanded', isCollapsed);
+        sidebar.classList.toggle('sidebar-collapsed', isCollapsed);
+        mainWrapper.classList.toggle('main-expanded', isCollapsed);
+        mainWrapper.style.marginLeft = isCollapsed ? '68px' : '';
     }
+    updateChevron();
 });
-mobileToggle?.addEventListener('click', () => {
-    sidebar.classList.toggle('open');
-    sidebarOverlay.classList.toggle('show');
-});
-sidebarOverlay?.addEventListener('click', () => {
-    sidebar.classList.remove('open');
-    sidebarOverlay.classList.remove('show');
-});
+
+mobileMenuBtn?.addEventListener('click', openMobileSidebar);
+overlay?.addEventListener('click', closeMobileSidebar);
+
 window.addEventListener('resize', () => {
-    if (window.innerWidth >= 1024) {
-        sidebar.classList.remove('open');
-        sidebarOverlay.classList.remove('show');
-    }
+    updateChevron();
+    if (window.innerWidth >= 1024) closeMobileSidebar();
 });
+
+updateChevron();
 
 function setupDropdown(btnId, menuId) {
     const btn = document.getElementById(btnId);
@@ -64,14 +76,19 @@ document.addEventListener('click', () => {
 
 /* ---------------- Generic modal open/close ---------------- */
 function openModal(id) { document.getElementById(id).classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
-function closeModal(id) { document.getElementById(id).classList.add('hidden'); document.body.style.overflow = ''; }
+function closeModal(id) {
+    document.getElementById(id).classList.add('hidden');
+    document.body.style.overflow = '';
+    // Reopening the wizard should always start with a fresh quotation number
+    if (id === 'modal-wizard') draftQuoteNo = null;
+}
 
 document.querySelectorAll('[data-close]').forEach(btn => {
     btn.addEventListener('click', () => closeModal(btn.dataset.close));
 });
-document.querySelectorAll('.modal-overlay').forEach(overlay => {
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) closeModal(overlay.id);
+document.querySelectorAll('.modal-overlay').forEach(ov => {
+    ov.addEventListener('click', (e) => {
+        if (e.target === ov) closeModal(ov.id);
     });
 });
 
@@ -90,22 +107,112 @@ function formatINR(n) {
 }
 
 /* =====================================================================
+   PRODUCT CATALOG — quick-add presets for the multi-product / multi-size
+   items builder in Step 2 of the wizard. Any item can still be freely
+   edited (name, type, qty, unit, rate) or removed.
+   ===================================================================== */
+const PRODUCT_PRESETS = [
+    { key: 'panel', icon: 'fa-solar-panel', name: 'Solar Panels', type: 'Monocrystalline', qty: 3300, unit: 'W', rate: 22 },
+    { key: 'inverter', icon: 'fa-plug-circle-bolt', name: 'Inverter', type: 'String', qty: 3, unit: 'kW', rate: 6500 },
+    { key: 'structure', icon: 'fa-warehouse', name: 'Mounting Structure', type: 'RCC Roof', qty: 6, unit: 'Panel', rate: 900 },
+    { key: 'battery', icon: 'fa-car-battery', name: 'Batteries', type: 'Lead Acid', qty: 150, unit: 'AH', rate: 12 },
+    { key: 'cable', icon: 'fa-plug', name: 'DC/AC Cable', type: 'Miscellaneous', qty: 25, unit: 'Mtr', rate: 50 },
+    { key: 'breaker', icon: 'fa-bolt', name: 'Circuit Breakers', type: 'Miscellaneous', qty: 3, unit: 'Pcs', rate: 250 },
+    { key: 'earthing', icon: 'fa-plug-circle-check', name: 'Earthing Kit', type: 'Safety', qty: 2, unit: 'Set', rate: 1800 },
+    { key: 'netmeter', icon: 'fa-gauge', name: 'Net Meter', type: 'Metering', qty: 1, unit: 'Unit', rate: 3500 },
+];
+
+let itemIdCounter = 1;
+function newItemId() { return 'it' + (itemIdCounter++); }
+
+function buildQuickAddChips() {
+    const row = document.getElementById('quick-add-row');
+    row.innerHTML = PRODUCT_PRESETS.map(p =>
+        `<button type="button" class="chip-btn" data-preset="${p.key}"><i class="fas ${p.icon}"></i> ${p.name}</button>`
+    ).join('') + `<button type="button" class="chip-btn" id="chip-custom"><i class="fas fa-plus"></i> Custom Item</button>`;
+
+    row.querySelectorAll('[data-preset]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const preset = PRODUCT_PRESETS.find(p => p.key === btn.dataset.preset);
+            wizardItems.push({ id: newItemId(), name: preset.name, type: preset.type, qty: preset.qty, unit: preset.unit, rate: preset.rate });
+            renderItemsTable();
+        });
+    });
+    document.getElementById('chip-custom').addEventListener('click', () => {
+        wizardItems.push({ id: newItemId(), name: '', type: '', qty: 1, unit: 'Pcs', rate: 0 });
+        renderItemsTable();
+    });
+}
+
+/* ---------------- Items table (Step 2) ---------------- */
+let wizardItems = [];
+
+function itemsSubtotal(items) {
+    return items.reduce((sum, it) => sum + (Number(it.qty) || 0) * (Number(it.rate) || 0), 0);
+}
+
+function renderItemsTable() {
+    const tbody = document.getElementById('items-tbody');
+    if (!wizardItems.length) {
+        tbody.innerHTML = `<tr class="items-empty-row"><td colspan="8">No products added yet — use the quick-add buttons above to start building this quotation.</td></tr>`;
+    } else {
+        tbody.innerHTML = wizardItems.map((it, i) => `
+            <tr data-id="${it.id}">
+                <td>${i + 1}</td>
+                <td class="item-name-cell"><input type="text" class="item-name" value="${escapeAttr(it.name)}" placeholder="Item name"></td>
+                <td><input type="text" class="item-type" value="${escapeAttr(it.type)}" placeholder="Type / model"></td>
+                <td><input type="number" class="item-qty" value="${it.qty}" min="0" step="any"></td>
+                <td><input type="text" class="item-unit" value="${escapeAttr(it.unit)}" placeholder="Unit"></td>
+                <td><input type="number" class="item-rate" value="${it.rate}" min="0" step="any"></td>
+                <td class="item-amount-cell" id="amt-${it.id}">${formatINR((Number(it.qty) || 0) * (Number(it.rate) || 0))}</td>
+                <td class="item-remove-cell"><button type="button" class="btn-icon-sm item-remove" title="Remove"><i class="fas fa-trash"></i></button></td>
+            </tr>
+        `).join('');
+    }
+
+    // Wire per-row events
+    tbody.querySelectorAll('tr[data-id]').forEach(row => {
+        const id = row.dataset.id;
+        const item = wizardItems.find(i => i.id === id);
+        row.querySelector('.item-name')?.addEventListener('input', e => { item.name = e.target.value; });
+        row.querySelector('.item-type')?.addEventListener('input', e => { item.type = e.target.value; });
+        row.querySelector('.item-unit')?.addEventListener('input', e => { item.unit = e.target.value; });
+        row.querySelector('.item-qty')?.addEventListener('input', e => { item.qty = e.target.value; updateItemAmount(item); });
+        row.querySelector('.item-rate')?.addEventListener('input', e => { item.rate = e.target.value; updateItemAmount(item); });
+        row.querySelector('.item-remove')?.addEventListener('click', () => {
+            wizardItems = wizardItems.filter(i => i.id !== id);
+            renderItemsTable();
+        });
+    });
+
+    updateItemsSubtotalDisplay();
+}
+
+function updateItemAmount(item) {
+    const amt = (Number(item.qty) || 0) * (Number(item.rate) || 0);
+    const cell = document.getElementById('amt-' + item.id);
+    if (cell) cell.textContent = formatINR(amt);
+    updateItemsSubtotalDisplay();
+}
+
+function updateItemsSubtotalDisplay() {
+    const total = itemsSubtotal(wizardItems);
+    const el = document.getElementById('items-subtotal');
+    if (el) el.textContent = formatINR(total);
+    const costItems = document.getElementById('cost-items');
+    if (costItems) costItems.textContent = formatINR(total);
+}
+
+function escapeAttr(str) {
+    return String(str ?? '').replace(/"/g, '&quot;');
+}
+
+/* =====================================================================
    QUOTATION DATA MODEL
    ===================================================================== */
-const UNIT_PRICES = {
-    panelPerWatt: 22,
-    inverterPerKw: 6500,
-    structurePerPanel: 900,
-    accessories: {
-        'DC Cable': 45, 'AC Cable': 60, 'Earthing Kit': 1800,
-        'Lightning Arrestor': 2200, 'Junction Box': 700, 'Connectors': 120, 'Net Meter': 3500
-    }
-};
-
-function computeTotals(costs, gstPercent, discountType, discountValue) {
-    const subtotal = costs.panel + costs.inverter + costs.structure + costs.accessories +
-        costs.installation + costs.transport + costs.netmeter + costs.other;
-    const discountAmount = discountType === 'percent' ? subtotal * (discountValue / 100) : discountValue;
+function computeTotals(itemsTotal, costs, gstPercent, discountType, discountValue) {
+    const subtotal = itemsTotal + (costs.installation || 0) + (costs.transport || 0) + (costs.other || 0);
+    const discountAmount = discountType === 'percent' ? subtotal * ((discountValue || 0) / 100) : (discountValue || 0);
     const taxable = Math.max(0, subtotal - discountAmount);
     const sgst = taxable * (gstPercent / 2 / 100);
     const cgst = taxable * (gstPercent / 2 / 100);
@@ -137,6 +244,13 @@ let quoteCounter = 1000;
 function nextQuoteNo() { quoteCounter += 1; return `SQ-${quoteCounter}`; }
 
 function makeQuotation(overrides = {}) {
+    const defaultItems = [
+        { id: newItemId(), name: 'Solar Panels', type: 'Monocrystalline', qty: 3300, unit: 'W', rate: 22 },
+        { id: newItemId(), name: 'Inverter', type: 'String', qty: 3, unit: 'kW', rate: 6500 },
+        { id: newItemId(), name: 'Mounting Structure', type: 'RCC Roof', qty: 6, unit: 'Panel', rate: 900 },
+        { id: newItemId(), name: 'DC/AC Cable', type: 'Miscellaneous', qty: 25, unit: 'Mtr', rate: 50 },
+        { id: newItemId(), name: 'Earthing Kit', type: 'Safety', qty: 2, unit: 'Set', rate: 1800 },
+    ];
     const base = {
         quoteNo: nextQuoteNo(),
         date: new Date().toISOString().slice(0, 10),
@@ -147,19 +261,9 @@ function makeQuotation(overrides = {}) {
         },
         systemSizeKw: 3,
         systemSizeLabel: '3 kW',
-        panel: { brand: 'Waaree', model: 'WSM-550', wattage: 550, qty: 6, warranty: '25 years (performance)' },
-        inverter: { brand: 'Growatt', capacity: '3 kW', type: 'String', warranty: '5 years' },
         mounting: 'RCC Roof',
-        accessories: [
-            { name: 'DC Cable', qty: 15, checked: true },
-            { name: 'AC Cable', qty: 10, checked: true },
-            { name: 'Earthing Kit', qty: 2, checked: true },
-            { name: 'Lightning Arrestor', qty: 1, checked: false },
-            { name: 'Junction Box', qty: 1, checked: true },
-            { name: 'Connectors', qty: 6, checked: true },
-            { name: 'Net Meter', qty: 1, checked: false }
-        ],
-        costs: { panel: 0, inverter: 0, structure: 0, accessories: 0, installation: 8000, transport: 2500, netmeter: 0, otherLabel: 'Other Charges', other: 0 },
+        items: defaultItems,
+        costs: { installation: 8000, transport: 2500, otherLabel: 'Other Charges', other: 0 },
         gstPercent: 18,
         discountType: 'percent',
         discountValue: 0,
@@ -169,41 +273,45 @@ function makeQuotation(overrides = {}) {
     };
     const merged = { ...base, ...overrides };
     merged.customer = { ...base.customer, ...(overrides.customer || {}) };
-    merged.panel = { ...base.panel, ...(overrides.panel || {}) };
-    merged.inverter = { ...base.inverter, ...(overrides.inverter || {}) };
     merged.costs = { ...base.costs, ...(overrides.costs || {}) };
-    if (overrides.accessories) merged.accessories = overrides.accessories;
+    if (overrides.items) merged.items = overrides.items;
 
-    // Auto-calc cost components from panel/inverter/structure/accessories
-    merged.costs.panel = merged.panel.wattage * merged.panel.qty * UNIT_PRICES.panelPerWatt;
-    merged.costs.inverter = merged.systemSizeKw * UNIT_PRICES.inverterPerKw;
-    merged.costs.structure = merged.panel.qty * UNIT_PRICES.structurePerPanel;
-    merged.costs.accessories = merged.accessories.reduce((sum, a) => {
-        if (a.checked && a.name !== 'Net Meter') return sum + (UNIT_PRICES.accessories[a.name] || 0) * a.qty;
-        return sum;
-    }, 0);
-    const netMeterItem = merged.accessories.find(a => a.name === 'Net Meter');
-    merged.costs.netmeter = (netMeterItem && netMeterItem.checked) ? (UNIT_PRICES.accessories['Net Meter'] * netMeterItem.qty) : 0;
-
-    const totals = computeTotals(merged.costs, merged.gstPercent, merged.discountType, merged.discountValue);
+    const itTotal = itemsSubtotal(merged.items);
+    const totals = computeTotals(itTotal, merged.costs, merged.gstPercent, merged.discountType, merged.discountValue);
     Object.assign(merged, totals);
+    merged.itemsTotal = itTotal;
     merged.amount = Math.round(totals.total);
     merged.balance = Math.round(totals.total - merged.advance);
     return merged;
 }
 
 /* ---------------- Seed demo quotations ---------------- */
+function scaleItems(items, factor) {
+    return items.map(it => ({ ...it, id: newItemId(), qty: Math.round((Number(it.qty) || 0) * factor * 100) / 100 }));
+}
+const BASE_ITEMS_3KW = [
+    { name: 'Solar Panels', type: 'Monocrystalline', qty: 3300, unit: 'W', rate: 22 },
+    { name: 'Inverter', type: 'String', qty: 3, unit: 'kW', rate: 6500 },
+    { name: 'Mounting Structure', type: 'RCC Roof', qty: 6, unit: 'Panel', rate: 900 },
+    { name: 'DC/AC Cable', type: 'Miscellaneous', qty: 25, unit: 'Mtr', rate: 50 },
+    { name: 'Earthing Kit', type: 'Safety', qty: 2, unit: 'Set', rate: 1800 },
+];
+function itemsForSize(sizeKw) {
+    const factor = sizeKw / 3;
+    return BASE_ITEMS_3KW.map(it => ({ ...it, id: newItemId(), qty: Math.max(1, Math.round((Number(it.qty) || 0) * factor)) }));
+}
+
 let quotations = [
     makeQuotation({ customer: { name: 'Amit Sharma', mobile: '9876543210', email: 'amit.sharma@example.com', address: 'Plot 12, Kothrud', city: 'Pune', state: 'Maharashtra', pincode: '411038' }, status: 'Pending', date: '2026-07-15' }),
-    makeQuotation({ customer: { name: 'Ramesh Traders', company: 'Ramesh Traders', mobile: '9876500001', email: 'ramesh.traders@example.com', address: 'MG Road', city: 'Ahmedabad', state: 'Gujarat', pincode: '380001', commercial: true, gst: '24ABCDE5678F1Z2' }, systemSizeKw: 5, systemSizeLabel: '5 kW', panel: { qty: 9 }, status: 'Accepted', date: '2026-07-14' }),
-    makeQuotation({ customer: { name: 'Priya Nair', mobile: '9876500002', email: 'priya.nair@example.com', address: 'Marine Drive', city: 'Kochi', state: 'Karnataka', pincode: '682001' }, systemSizeKw: 2, systemSizeLabel: '2 kW', panel: { qty: 4 }, status: 'Rejected', date: '2026-07-13' }),
-    makeQuotation({ customer: { name: 'Suresh Patel', mobile: '9876500003', email: 'suresh.patel@example.com', address: 'Ring Road', city: 'Rajkot', state: 'Gujarat', pincode: '360001' }, systemSizeKw: 10, systemSizeLabel: '10 kW', panel: { qty: 18 }, status: 'Pending', date: '2026-07-12' }),
-    makeQuotation({ customer: { name: 'Neha Gupta', mobile: '9876500004', email: 'neha.gupta@example.com', address: 'Civil Lines', city: 'Jaipur', state: 'Rajasthan', pincode: '302001' }, systemSizeKw: 1, systemSizeLabel: '1 kW', panel: { qty: 2 }, status: 'Accepted', date: '2026-07-11' }),
-    makeQuotation({ customer: { name: 'Vikas Enterprises', company: 'Vikas Enterprises', mobile: '9876500005', email: 'vikas.ent@example.com', address: 'Industrial Area', city: 'Delhi', state: 'Delhi', pincode: '110001', commercial: true, gst: '07ABCDE1111F1Z9' }, systemSizeKw: 20, systemSizeLabel: '20 kW', panel: { qty: 36 }, status: 'Pending', date: '2026-07-10' }),
+    makeQuotation({ customer: { name: 'Ramesh Traders', company: 'Ramesh Traders', mobile: '9876500001', email: 'ramesh.traders@example.com', address: 'MG Road', city: 'Ahmedabad', state: 'Gujarat', pincode: '380001', commercial: true, gst: '24ABCDE5678F1Z2' }, systemSizeKw: 5, systemSizeLabel: '5 kW', items: itemsForSize(5), status: 'Accepted', date: '2026-07-14' }),
+    makeQuotation({ customer: { name: 'Priya Nair', mobile: '9876500002', email: 'priya.nair@example.com', address: 'Marine Drive', city: 'Kochi', state: 'Karnataka', pincode: '682001' }, systemSizeKw: 2, systemSizeLabel: '2 kW', items: itemsForSize(2), status: 'Rejected', date: '2026-07-13' }),
+    makeQuotation({ customer: { name: 'Suresh Patel', mobile: '9876500003', email: 'suresh.patel@example.com', address: 'Ring Road', city: 'Rajkot', state: 'Gujarat', pincode: '360001' }, systemSizeKw: 10, systemSizeLabel: '10 kW', items: itemsForSize(10), status: 'Pending', date: '2026-07-12' }),
+    makeQuotation({ customer: { name: 'Neha Gupta', mobile: '9876500004', email: 'neha.gupta@example.com', address: 'Civil Lines', city: 'Jaipur', state: 'Rajasthan', pincode: '302001' }, systemSizeKw: 1, systemSizeLabel: '1 kW', items: itemsForSize(1), status: 'Accepted', date: '2026-07-11' }),
+    makeQuotation({ customer: { name: 'Vikas Enterprises', company: 'Vikas Enterprises', mobile: '9876500005', email: 'vikas.ent@example.com', address: 'Industrial Area', city: 'Delhi', state: 'Delhi', pincode: '110001', commercial: true, gst: '07ABCDE1111F1Z9' }, systemSizeKw: 20, systemSizeLabel: '20 kW', items: itemsForSize(20), status: 'Pending', date: '2026-07-10' }),
     makeQuotation({ customer: { name: 'Anjali Deshmukh', mobile: '9876500006', email: 'anjali.d@example.com', address: 'FC Road', city: 'Pune', state: 'Maharashtra', pincode: '411005' }, status: 'Accepted', date: '2026-07-09' }),
-    makeQuotation({ customer: { name: 'Rohit Verma', mobile: '9876500007', email: 'rohit.verma@example.com', address: 'Anna Nagar', city: 'Chennai', state: 'Tamil Nadu', pincode: '600040' }, systemSizeKw: 5, systemSizeLabel: '5 kW', panel: { qty: 9 }, status: 'Rejected', date: '2026-07-08' }),
-    makeQuotation({ customer: { name: 'Sneha Kulkarni', mobile: '9876500008', email: 'sneha.k@example.com', address: 'Deccan Gymkhana', city: 'Pune', state: 'Maharashtra', pincode: '411004' }, systemSizeKw: 2, systemSizeLabel: '2 kW', panel: { qty: 4 }, status: 'Pending', date: '2026-07-07' }),
-    makeQuotation({ customer: { name: 'Manoj Yadav', mobile: '9876500009', email: 'manoj.y@example.com', address: 'Hazratganj', city: 'Lucknow', state: 'Delhi', pincode: '226001' }, systemSizeKw: 10, systemSizeLabel: '10 kW', panel: { qty: 18 }, status: 'Accepted', date: '2026-07-06' }),
+    makeQuotation({ customer: { name: 'Rohit Verma', mobile: '9876500007', email: 'rohit.verma@example.com', address: 'Anna Nagar', city: 'Chennai', state: 'Tamil Nadu', pincode: '600040' }, systemSizeKw: 5, systemSizeLabel: '5 kW', items: itemsForSize(5), status: 'Rejected', date: '2026-07-08' }),
+    makeQuotation({ customer: { name: 'Sneha Kulkarni', mobile: '9876500008', email: 'sneha.k@example.com', address: 'Deccan Gymkhana', city: 'Pune', state: 'Maharashtra', pincode: '411004' }, systemSizeKw: 2, systemSizeLabel: '2 kW', items: itemsForSize(2), status: 'Pending', date: '2026-07-07' }),
+    makeQuotation({ customer: { name: 'Manoj Yadav', mobile: '9876500009', email: 'manoj.y@example.com', address: 'Hazratganj', city: 'Lucknow', state: 'Delhi', pincode: '226001' }, systemSizeKw: 10, systemSizeLabel: '10 kW', items: itemsForSize(10), status: 'Accepted', date: '2026-07-06' }),
 ];
 
 /* =====================================================================
@@ -259,6 +367,23 @@ function updateStats() {
     document.getElementById('stat-pending').textContent = quotations.filter(q => q.status === 'Pending').length;
 }
 
+function buildPaginationButtons(totalPages) {
+    // Show all pages up to 7; beyond that, collapse the middle with an ellipsis
+    const pages = [];
+    if (totalPages <= 7) {
+        for (let p = 1; p <= totalPages; p++) pages.push(p);
+    } else {
+        pages.push(1);
+        if (currentPage > 4) pages.push('...');
+        const start = Math.max(2, currentPage - 1);
+        const end = Math.min(totalPages - 1, currentPage + 1);
+        for (let p = start; p <= end; p++) pages.push(p);
+        if (currentPage < totalPages - 3) pages.push('...');
+        pages.push(totalPages);
+    }
+    return pages;
+}
+
 function renderTable() {
     updateStats();
     refreshSizeFilterOptions();
@@ -287,9 +412,21 @@ function renderTable() {
         </tr>
     `).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--hover2);padding:24px;">No quotations match your filters.</td></tr>`;
 
+    // Range text ("Showing 1-10 of 34")
+    const rangeEl = document.getElementById('table-range');
+    if (rangeEl) {
+        rangeEl.textContent = filtered.length
+            ? `· Showing ${start + 1}-${Math.min(start + rowsPerPage, filtered.length)} of ${filtered.length}`
+            : '· No results';
+    }
+
     const pagination = document.getElementById('pagination');
+    const pageList = buildPaginationButtons(totalPages);
     let html = `<button ${currentPage === 1 ? 'disabled' : ''} data-page="${currentPage - 1}"><i class="fas fa-chevron-left"></i></button>`;
-    for (let p = 1; p <= totalPages; p++) html += `<button class="${p === currentPage ? 'active' : ''}" data-page="${p}">${p}</button>`;
+    pageList.forEach(p => {
+        if (p === '...') { html += `<span class="ellipsis">…</span>`; }
+        else { html += `<button class="${p === currentPage ? 'active' : ''}" data-page="${p}">${p}</button>`; }
+    });
     html += `<button ${currentPage === totalPages ? 'disabled' : ''} data-page="${currentPage + 1}"><i class="fas fa-chevron-right"></i></button>`;
     pagination.innerHTML = html;
     pagination.querySelectorAll('button[data-page]').forEach(btn => {
@@ -328,22 +465,19 @@ document.querySelectorAll('.data-table th[data-sort]').forEach(th => {
    INVOICE MARKUP (shared by wizard preview + view modal)
    ===================================================================== */
 function buildInvoiceMarkup(q) {
-    const items = [
-        { name: 'Solar Panels', type: q.panel.brand, qty: q.panel.qty, unit: 'Pcs', amount: q.costs.panel },
-        { name: 'Inverter', type: q.inverter.type, qty: 1, unit: 'Unit', amount: q.costs.inverter },
-        { name: 'Mounting Structure', type: q.mounting, qty: 1, unit: 'Set', amount: q.costs.structure },
-        { name: 'Electrical Accessories', type: 'Miscellaneous', qty: 1, unit: 'Set', amount: q.costs.accessories },
-        { name: 'Installation', type: 'Labor Cost', qty: 1, unit: 'Job', amount: q.costs.installation },
-        { name: 'Transportation', type: 'Logistics', qty: 1, unit: 'Job', amount: q.costs.transport },
-    ];
-    if (q.costs.netmeter) items.push({ name: 'Net Meter', type: 'Metering', qty: 1, unit: 'Unit', amount: q.costs.netmeter });
-    if (q.costs.other) items.push({ name: q.costs.otherLabel || 'Other Charges', type: 'Other', qty: 1, unit: '—', amount: q.costs.other });
+    const items = (q.items || []).map(it => ({
+        name: it.name || '—', type: it.type || '—', qty: it.qty, unit: it.unit || '—',
+        rate: it.rate, amount: (Number(it.qty) || 0) * (Number(it.rate) || 0)
+    }));
+    if (q.costs.installation) items.push({ name: 'Installation', type: 'Labor Cost', qty: 1, unit: 'Job', rate: q.costs.installation, amount: q.costs.installation });
+    if (q.costs.transport) items.push({ name: 'Transportation', type: 'Logistics', qty: 1, unit: 'Job', rate: q.costs.transport, amount: q.costs.transport });
+    if (q.costs.other) items.push({ name: q.costs.otherLabel || 'Other Charges', type: 'Other', qty: 1, unit: '—', rate: q.costs.other, amount: q.costs.other });
 
     const rowsHtml = items.map((item, i) => `
         <tr>
             <td>${i + 1}</td><td>${item.name}</td><td>${item.type}</td>
             <td class="num">${item.qty}</td><td>${item.unit}</td>
-            <td class="num">${formatINR(item.amount)}</td><td class="num">0</td>
+            <td class="num">${formatINR(item.rate)}</td><td class="num">0</td>
             <td class="num">${q.gstPercent}%</td><td class="num">${formatINR(item.amount)}</td>
         </tr>
     `).join('');
@@ -360,7 +494,7 @@ function buildInvoiceMarkup(q) {
                 <div>GSTIN: ${COMPANY.gstin}</div>
                 <div>State: ${COMPANY.state}</div>
             </div>
-            <img src="${COMPANY.logo}" alt="Company Logo" class="inv-logo">
+            <img src="${COMPANY.logo}" alt="Company Logo" class="inv-logo" crossorigin="anonymous">
         </div>
         <div class="inv-title">Quotation</div>
         <div class="inv-parties">
@@ -406,13 +540,38 @@ function buildInvoiceMarkup(q) {
     `;
 }
 
+/* ---------------- PDF download (used by wizard "Generate" + view modal + share buttons) ---------------- */
+function downloadInvoicePDF(elementId, filename) {
+    const element = document.getElementById(elementId);
+    if (!element || typeof html2pdf === 'undefined') {
+        showToast('PDF library failed to load. Check your internet connection.', 'error');
+        return Promise.resolve();
+    }
+    const opt = {
+        margin: 8,
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+    return html2pdf().set(opt).from(element).save();
+}
+
 /* =====================================================================
    VIEW MODAL (read-only)
    ===================================================================== */
+let viewingQuoteNo = null;
+
 function openViewModal(q) {
+    viewingQuoteNo = q.quoteNo;
     document.getElementById('view-invoice-preview').innerHTML = buildInvoiceMarkup(q);
     openModal('modal-view');
 }
+
+document.getElementById('btn-view-download-pdf').addEventListener('click', () => {
+    if (!viewingQuoteNo) return;
+    downloadInvoicePDF('view-invoice-preview', `${viewingQuoteNo}.pdf`);
+});
 
 /* =====================================================================
    EDIT MODAL (essential fields only)
@@ -441,7 +600,7 @@ function updateEditSummary() {
     const transport = parseFloat(document.getElementById('edit-transport').value) || 0;
     const discountValue = parseFloat(document.getElementById('edit-discountValue').value) || 0;
     const costs = { ...q.costs, installation, transport };
-    const totals = computeTotals(costs, q.gstPercent, q.discountType, discountValue);
+    const totals = computeTotals(q.itemsTotal, costs, q.gstPercent, q.discountType, discountValue);
     document.getElementById('edit-summary').innerHTML = `
         <div class="row"><span>Sub Total</span><b>${formatINR(totals.subtotal)}</b></div>
         <div class="row"><span>Discount</span><b>- ${formatINR(totals.discountAmount)}</b></div>
@@ -481,7 +640,7 @@ document.getElementById('btn-save-edit').addEventListener('click', () => {
     q.discountValue = parseFloat(document.getElementById('edit-discountValue').value) || 0;
     q.status = document.getElementById('edit-status').value;
 
-    const totals = computeTotals(q.costs, q.gstPercent, q.discountType, q.discountValue);
+    const totals = computeTotals(q.itemsTotal, q.costs, q.gstPercent, q.discountType, q.discountValue);
     Object.assign(q, totals);
     q.amount = Math.round(totals.total);
     q.balance = Math.round(totals.total - q.advance);
@@ -530,8 +689,15 @@ function resetWizardForm() {
     document.getElementById('gst-field').classList.add('hidden');
     document.getElementById('f-systemSize').value = '3';
     document.getElementById('other-size-wrap').classList.add('hidden');
-    document.getElementById('f-panelQty').value = 6;
-    document.getElementById('f-invCapacity').value = '3 kW';
+
+    // Reset mounting radio to default
+    document.querySelectorAll('#mount-group .radio-card').forEach((card, i) => card.classList.toggle('active', i === 0));
+    document.querySelectorAll('#mount-group input[type="radio"]').forEach((r, i) => r.checked = i === 0);
+
+    // Reset products/items to the default preset for a 3 kW system
+    wizardItems = itemsForSize(3);
+    renderItemsTable();
+
     document.getElementById('cost-installation').value = 8000;
     document.getElementById('cost-transport').value = 2500;
     document.getElementById('cost-other').value = 0;
@@ -545,9 +711,11 @@ function resetWizardForm() {
     document.querySelectorAll('.invalid').forEach(e => e.classList.remove('invalid'));
     document.getElementById('share-grid').classList.add('hidden');
     document.getElementById('btn-generate').classList.remove('hidden');
+    document.getElementById('btn-generate').disabled = false;
 }
 
 function openWizard() {
+    draftQuoteNo = null;
     resetWizardForm();
     currentStep = 1;
     goToStep(1);
@@ -624,8 +792,19 @@ function validateStep1() {
 
 function validateStep2() {
     let ok = true;
-    const qty = parseFloat(document.getElementById('f-panelQty').value);
-    ok = markError('f-panelQty', 'err-panelQty', (qty && qty > 0) ? '' : 'Enter a valid panel quantity') && ok;
+    const errEl = document.getElementById('err-items');
+    if (!wizardItems.length) {
+        errEl.textContent = 'Add at least one product to this quotation.';
+        ok = false;
+    } else {
+        const invalidRow = wizardItems.some(it => !it.name || !it.name.trim() || !(Number(it.qty) > 0));
+        if (invalidRow) {
+            errEl.textContent = 'Every product needs a name and a quantity/size greater than 0.';
+            ok = false;
+        } else {
+            errEl.textContent = '';
+        }
+    }
     if (!ok) showToast('Please fix the highlighted fields.', 'error');
     return ok;
 }
@@ -643,7 +822,6 @@ sizeSelect.addEventListener('change', () => {
         document.getElementById('f-otherSize').focus();
     } else {
         document.getElementById('other-size-wrap').classList.add('hidden');
-        applySizeDefaults(parseFloat(sizeSelect.value) || 3);
     }
 });
 
@@ -656,13 +834,12 @@ document.getElementById('btn-add-size').addEventListener('click', () => {
     const newOption = document.createElement('option');
     newOption.value = value;
     newOption.dataset.custom = 'true';
+    newOption.dataset.kw = parseFloat(label) || 3;
     newOption.textContent = label;
     sizeSelect.insertBefore(newOption, otherOption);
     sizeSelect.value = value;
     document.getElementById('other-size-wrap').classList.add('hidden');
     input.value = '';
-    const kwMatch = parseFloat(label);
-    applySizeDefaults(kwMatch || 3);
     showToast(`Custom system size "${label}" added`, 'success');
 });
 
@@ -671,16 +848,12 @@ function getSelectedSizeLabel() {
     return opt ? opt.textContent : '3 kW';
 }
 function getSelectedSizeKw() {
+    const opt = sizeSelect.options[sizeSelect.selectedIndex];
+    if (opt && opt.dataset.kw) return parseFloat(opt.dataset.kw);
     const val = sizeSelect.value;
     if (val === '__other__') return 3;
     const n = parseFloat(val);
     return isNaN(n) ? (parseFloat(getSelectedSizeLabel()) || 3) : n;
-}
-
-function applySizeDefaults(sizeKw) {
-    const panelQty = Math.max(2, Math.round((sizeKw * 1000) / 550));
-    document.getElementById('f-panelQty').value = panelQty;
-    document.getElementById('f-invCapacity').value = `${sizeKw} kW`;
 }
 
 // Mounting structure highlight
@@ -692,70 +865,39 @@ document.querySelectorAll('#mount-group input[type="radio"]').forEach(radio => {
 });
 
 /* ---------------- Cost Calculation (Step 3) ---------------- */
-function getAccessoriesFromForm() {
-    return [...document.querySelectorAll('#accessories-list .check-row')].map(row => ({
-        name: row.dataset.name,
-        checked: row.querySelector('input[type="checkbox"]').checked,
-        qty: parseFloat(row.querySelector('.qty-input').value) || 0
-    }));
-}
-
 function computeCosts() {
-    const panelWattage = parseFloat(document.getElementById('f-panelWattage').value) || 550;
-    const panelQty = parseFloat(document.getElementById('f-panelQty').value) || 0;
-    const panelCost = panelWattage * panelQty * UNIT_PRICES.panelPerWatt;
-
-    const sizeKw = getSelectedSizeKw();
-    const inverterCost = sizeKw * UNIT_PRICES.inverterPerKw;
-    const structureCost = panelQty * UNIT_PRICES.structurePerPanel;
-
-    let accessoriesCost = 0;
-    getAccessoriesFromForm().forEach(item => {
-        if (item.checked && item.name !== 'Net Meter') accessoriesCost += (UNIT_PRICES.accessories[item.name] || 0) * item.qty;
-    });
-
-    document.getElementById('cost-panel').textContent = formatINR(panelCost);
-    document.getElementById('cost-inverter').textContent = formatINR(inverterCost);
-    document.getElementById('cost-structure').textContent = formatINR(structureCost);
-    document.getElementById('cost-accessories').textContent = formatINR(accessoriesCost);
-
-    const netMeterChecked = document.getElementById('f-netmeter').checked;
-    document.getElementById('cost-netmeter').closest('tr').style.opacity = netMeterChecked ? '1' : '0.45';
+    document.getElementById('cost-items').textContent = formatINR(itemsSubtotal(wizardItems));
 }
-['f-panelWattage', 'f-panelQty'].forEach(id => document.getElementById(id).addEventListener('input', computeCosts));
-document.querySelectorAll('#accessories-list input').forEach(el => el.addEventListener('input', computeCosts));
-
-function parseINR(str) { return Number(String(str).replace(/[₹,]/g, '')) || 0; }
+['cost-installation', 'cost-transport', 'cost-other'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => { if (currentStep === 4) computeGstSummary(); });
+});
 
 function getCostTotalsFromForm() {
-    const panel = parseINR(document.getElementById('cost-panel').textContent);
-    const inverter = parseINR(document.getElementById('cost-inverter').textContent);
-    const structure = parseINR(document.getElementById('cost-structure').textContent);
-    const accessories = parseINR(document.getElementById('cost-accessories').textContent);
     const installation = parseFloat(document.getElementById('cost-installation').value) || 0;
     const transport = parseFloat(document.getElementById('cost-transport').value) || 0;
-    const netmeter = document.getElementById('f-netmeter').checked ? (parseFloat(document.getElementById('cost-netmeter').value) || 0) : 0;
     const otherLabel = document.getElementById('cost-other-label').value || 'Other Charges';
     const other = parseFloat(document.getElementById('cost-other').value) || 0;
-    return { panel, inverter, structure, accessories, installation, transport, netmeter, otherLabel, other };
+    return { installation, transport, otherLabel, other };
 }
 
 /* ---------------- GST & Discount (Step 4) ---------------- */
 function computeGstSummary() {
     const costs = getCostTotalsFromForm();
+    const itTotal = itemsSubtotal(wizardItems);
     const gstPercent = parseFloat(document.getElementById('f-gstPercent').value) || 0;
     const discountType = document.getElementById('f-discountType').value;
     const discountValue = parseFloat(document.getElementById('f-discountValue').value) || 0;
-    const totals = computeTotals(costs, gstPercent, discountType, discountValue);
+    const totals = computeTotals(itTotal, costs, gstPercent, discountType, discountValue);
 
     document.getElementById('summary-gst').innerHTML = `
-        <div class="row"><span>Sub Total</span><b>${formatINR(totals.subtotal)}</b></div>
+        <div class="row"><span>Items Subtotal</span><b>${formatINR(itTotal)}</b></div>
+        <div class="row"><span>Additional Charges</span><b>${formatINR(costs.installation + costs.transport + costs.other)}</b></div>
         <div class="row"><span>Discount</span><b>- ${formatINR(totals.discountAmount)}</b></div>
         <div class="row"><span>SGST (${(gstPercent / 2).toFixed(1)}%)</span><b>${formatINR(totals.sgst)}</b></div>
         <div class="row"><span>CGST (${(gstPercent / 2).toFixed(1)}%)</span><b>${formatINR(totals.cgst)}</b></div>
         <div class="row total"><span>Total</span><b>${formatINR(totals.total)}</b></div>
     `;
-    return { ...totals, gstPercent, costs };
+    return { ...totals, gstPercent, costs, itemsTotal: itTotal };
 }
 ['f-gstPercent', 'f-discountType', 'f-discountValue'].forEach(id => document.getElementById(id).addEventListener('input', computeGstSummary));
 
@@ -784,10 +926,11 @@ function computeSavings() {
 /* ---------------- Build draft record + render preview (Step 6) ---------------- */
 function collectWizardRecord(quoteNo) {
     const costs = getCostTotalsFromForm();
+    const itTotal = itemsSubtotal(wizardItems);
     const gstPercent = parseFloat(document.getElementById('f-gstPercent').value) || 0;
     const discountType = document.getElementById('f-discountType').value;
     const discountValue = parseFloat(document.getElementById('f-discountValue').value) || 0;
-    const totals = computeTotals(costs, gstPercent, discountType, discountValue);
+    const totals = computeTotals(itTotal, costs, gstPercent, discountType, discountValue);
 
     return {
         quoteNo,
@@ -808,21 +951,9 @@ function collectWizardRecord(quoteNo) {
         },
         systemSizeKw: getSelectedSizeKw(),
         systemSizeLabel: getSelectedSizeLabel(),
-        panel: {
-            brand: document.getElementById('f-panelBrand').value,
-            model: document.getElementById('f-panelModel').value,
-            wattage: parseFloat(document.getElementById('f-panelWattage').value) || 550,
-            qty: parseFloat(document.getElementById('f-panelQty').value) || 0,
-            warranty: document.getElementById('f-panelWarranty').value
-        },
-        inverter: {
-            brand: document.getElementById('f-invBrand').value,
-            capacity: document.getElementById('f-invCapacity').value,
-            type: document.getElementById('f-invType').value,
-            warranty: document.getElementById('f-invWarranty').value
-        },
-        mounting: document.querySelector('#mount-group input:checked')?.nextElementSibling?.textContent || 'RCC Roof',
-        accessories: getAccessoriesFromForm(),
+        mounting: document.querySelector('#mount-group input:checked')?.closest('.radio-card')?.querySelector('span')?.textContent || 'RCC Roof',
+        items: wizardItems.map(it => ({ ...it })),
+        itemsTotal: itTotal,
         costs,
         gstPercent, discountType, discountValue,
         tariff: parseFloat(document.getElementById('f-tariff').value) || 0,
@@ -843,21 +974,44 @@ function renderWizardPreview() {
 }
 
 document.getElementById('btn-generate').addEventListener('click', () => {
+    const btn = document.getElementById('btn-generate');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
+
     const record = collectWizardRecord(draftQuoteNo || nextQuoteNo());
     quotations.unshift(record);
     draftQuoteNo = null;
 
-    document.getElementById('share-grid').classList.remove('hidden');
-    document.getElementById('btn-generate').classList.add('hidden');
     document.getElementById('invoice-preview').innerHTML = buildInvoiceMarkup(record);
+    document.getElementById('share-grid').classList.remove('hidden');
+    btn.classList.add('hidden');
 
-    showToast(`Quotation ${record.quoteNo} generated successfully`, 'success');
     renderTable();
+
+    // Auto-download the invoice as a PDF as soon as it is generated
+    downloadInvoicePDF('invoice-preview', `${record.quoteNo}.pdf`).then(() => {
+        showToast(`Quotation ${record.quoteNo} generated & PDF downloaded`, 'success');
+    }).catch(() => {
+        showToast(`Quotation ${record.quoteNo} generated successfully`, 'success');
+    });
+
+    // Wire the share-grid Download PDF button to re-download the same invoice on demand
+    document.getElementById('btn-download-pdf').onclick = () => downloadInvoicePDF('invoice-preview', `${record.quoteNo}.pdf`);
+    document.getElementById('btn-share-email').onclick = () => {
+        const subject = encodeURIComponent(`Solar Quotation ${record.quoteNo}`);
+        const body = encodeURIComponent(`Hi ${record.customer.name || ''},\n\nPlease find your solar quotation ${record.quoteNo} (Total: ${formatINR(record.total)}). We have downloaded the PDF — please attach it to this email before sending.\n\nThanks,\n${COMPANY.name}`);
+        window.location.href = `mailto:${record.customer.email || ''}?subject=${subject}&body=${body}`;
+    };
+    document.getElementById('btn-share-whatsapp').onclick = () => {
+        const text = encodeURIComponent(`Hi ${record.customer.name || ''}, here is your solar quotation ${record.quoteNo} — Total: ${formatINR(record.total)}. (PDF downloaded separately)`);
+        window.open(`https://wa.me/?text=${text}`, '_blank');
+    };
 
     setTimeout(() => {
         closeModal('modal-wizard');
-    }, 900);
+    }, 1200);
 });
 
 /* ---------------- Init ---------------- */
+buildQuickAddChips();
 renderTable();

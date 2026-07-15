@@ -5,56 +5,82 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Quotation Management — Solar Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { theme: { extend: { colors: { active: '#111844', border2: '#4B5694', bg: '#FAFAFA', hover2: '#7288AE', card: '#FFFCFC', dark: '#1a2155' } } } }</script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/quotation/quotation.css">
+    <!-- PDF generation (used to download the invoice as a PDF file) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 
 <body>
 
 <!-- ============ SIDEBAR ============ -->
-<aside id="sidebar" class="sidebar">
-    <div class="sidebar-head">
-        <div class="brand">
-            <img src="/img/logo.png" alt="Company Logo" class="brand-logo">
-        </div>
-        <button id="sidebar-toggle" class="icon-btn">
+<aside id="sidebar" class="fixed top-0 left-0 h-full w-[260px] bg-[#FFFCFC] z-[100] flex flex-col transition-all duration-300 overflow-hidden shadow-lg">
+    <div class="flex items-center justify-between px-5 h-16 border border-[#4B5694]/20 shadow-sm">
+        <div class="flex items-center gap-3">
+    <div class="w-9 h-9 rounded-lg bg-[#111844] flex items-center justify-center text-[#FAFAFA] flex-shrink-0">
+        <i class="fas fa-solar-panel"></i>
+    </div>
+    <div class="sidebar-brand-text flex flex-col">
+        <img src="../img/logo.png" alt="Logo" class="h-6 w-auto object-contain" />
+    </div>
+</div>
+        <button id="sidebar-toggle" class="w-7 h-7 flex items-center justify-center rounded-lg text-[#4B5694] hover:bg-[#4B5694]/10 transition-colors">
             <i class="fas fa-chevron-left text-sm"></i>
         </button>
     </div>
 
-    <nav class="sidebar-nav">
-        <a href="/Dashboard/dashboard.html" class="nav-item">
-            <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
+    <nav class="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+
+        <!-- DASHBOARD -->
+        <a href="../Dashboard/dashboard.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg  text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm">
+            <span class="nav-icon text-base flex-shrink-0 w-5"><i class="fas fa-chart-pie"></i></span>
             <span class="nav-label">Dashboard</span>
         </a>
-        <a href="/quotation/quotation.html" class="nav-item nav-active">
-            <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+
+        <!-- QUOTATION TEMPLATE -->
+        <a href="quotation.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm nav-active">
+            <span class="nav-icon text-base flex-shrink-0 w-5"><i class="fas fa-file-invoice-dollar"></i></span>
             <span class="nav-label">Quotation Management</span>
         </a>
-        <a href="/product/product.html" class="nav-item">
-            <span class="nav-icon"><i class="fas fa-box"></i></span>
+
+        <!-- PRODUCT MANAGEMENT -->
+        <a href="../product/product.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm">
+            <span class="nav-icon text-base flex-shrink-0 w-5"><i class="fas fa-solar-panel"></i></span>
             <span class="nav-label">Product Management</span>
         </a>
-        <a href="/vendor/vendor.html" class="nav-item">
-            <span class="nav-icon"><i class="fas fa-truck-loading"></i></span>
+
+        <!-- VENDOR MANAGEMENT -->
+        <a href="../vendor/vendor.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm">
+            <span class="nav-icon text-base flex-shrink-0 w-5"><i class="fas fa-truck-loading"></i></span>
             <span class="nav-label">Vendor Management</span>
         </a>
-        <a href="/reports/reports.html" class="nav-item">
-            <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+
+        <!-- REPORTS -->
+        <a href="../reports/reports.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm">
+            <span class="nav-icon text-base flex-shrink-0 w-5"><i class="fas fa-chart-bar"></i></span>
             <span class="nav-label">Reports Management</span>
         </a>
-       
+
     </nav>
+
+    <div class="px-4 py-3 border-t border-[#4B5694]/15">
+        <div class="sidebar-brand-text text-[10px] text-[#7288AE]">Role: <span class="font-semibold text-[#111844]">Admin</span></div>
+    </div>
 </aside>
 
-<div id="sidebar-overlay" class="sidebar-overlay"></div>
+<div id="sidebar-overlay" class="hidden fixed inset-0 bg-[#111844]/50 z-[90] lg:hidden"></div>
 
 <!-- ============ MAIN ============ -->
 <div id="main-wrapper" class="main-wrapper">
 
     <header class="topbar">
         <div class="topbar-left">
+            <button id="mobile-menu-btn" class="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg text-[#4B5694] hover:bg-[#4B5694]/10">
+                <i class="fas fa-bars"></i>
+            </button>
             <div>
                 <h1 class="page-title">Quotation Management</h1>
                 <p class="page-sub">Create, track and manage solar quotations</p>
@@ -203,6 +229,7 @@
                         <option value="25">25</option>
                         <option value="50">50</option>
                     </select>
+                    <span class="table-range" id="table-range"></span>
                 </div>
                 <div class="pagination" id="pagination"></div>
             </div>
@@ -300,7 +327,7 @@
                 </div>
             </div>
 
-            <!-- Step 2: Product Selection (incl. System Size) -->
+            <!-- Step 2: Product & Size Selection (multi-product, multi-size) -->
             <div class="step-panel" data-panel="2">
                 <div class="panel-title">Product Selection</div>
 
@@ -330,95 +357,51 @@
                             </div>
                         </div>
                     </div>
-                    <div class="hint-box"><i class="fas fa-lightbulb"></i> Choosing a size pre-fills a suggested panel quantity and inverter capacity below — you can still edit them.</div>
+                    <div class="hint-box"><i class="fas fa-lightbulb"></i> This size is used for the quotation header and the savings/subsidy estimate. Add the matching products for it below.</div>
                 </div>
 
                 <div class="sub-section">
-                    <div class="sub-title"><i class="fas fa-solar-panel"></i> Solar Panels</div>
-                    <div class="form-grid">
-                        <div class="form-field">
-                            <label>Brand</label>
-                            <select id="f-panelBrand" class="select-input">
-                                <option>Waaree</option>
-                                <option>Adani Solar</option>
-                                <option>Vikram Solar</option>
-                                <option>Tata Power Solar</option>
-                            </select>
-                        </div>
-                        <div class="form-field">
-                            <label>Model</label>
-                            <select id="f-panelModel" class="select-input">
-                                <option>WSM-550</option>
-                                <option>WSM-600</option>
-                            </select>
-                        </div>
-                        <div class="form-field">
-                            <label>Wattage</label>
-                            <input type="text" id="f-panelWattage" value="550W">
-                        </div>
-                        <div class="form-field">
-                            <label>Quantity <span class="req">*</span></label>
-                            <input type="number" id="f-panelQty" value="6" min="1">
-                            <span class="field-error" id="err-panelQty"></span>
-                        </div>
-                        <div class="form-field span-2">
-                            <label>Warranty</label>
-                            <input type="text" id="f-panelWarranty" value="25 years (performance)">
-                        </div>
+                    <div class="sub-title"><i class="fas fa-boxes-stacked"></i> Products & Items</div>
+                    <div class="hint-box"><i class="fas fa-circle-info"></i> Quick-add common products below, or add a custom item. Every product row has its own size/quantity, unit and rate — add as many products as this quotation needs.</div>
+                    <div class="quick-add-row" id="quick-add-row">
+                        <!-- populated by JS with preset product chips -->
                     </div>
-                </div>
-
-                <div class="sub-section">
-                    <div class="sub-title"><i class="fas fa-plug-circle-bolt"></i> Inverter</div>
-                    <div class="form-grid">
-                        <div class="form-field">
-                            <label>Brand</label>
-                            <select id="f-invBrand" class="select-input">
-                                <option>Growatt</option>
-                                <option>Luminous</option>
-                                <option>Deye</option>
-                            </select>
-                        </div>
-                        <div class="form-field">
-                            <label>Capacity</label>
-                            <input type="text" id="f-invCapacity" value="3 kW">
-                        </div>
-                        <div class="form-field">
-                            <label>Type</label>
-                            <select id="f-invType" class="select-input">
-                                <option>String</option>
-                                <option>Hybrid</option>
-                                <option>Micro Inverter</option>
-                            </select>
-                        </div>
-                        <div class="form-field">
-                            <label>Warranty</label>
-                            <input type="text" id="f-invWarranty" value="5 years">
-                        </div>
+                    <div class="items-table-wrap">
+                        <table class="items-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:26px;">#</th>
+                                    <th>Item</th>
+                                    <th>Type / Model</th>
+                                    <th style="width:80px;">Qty / Size</th>
+                                    <th style="width:80px;">Unit</th>
+                                    <th style="width:100px;">Rate (₹)</th>
+                                    <th style="width:110px;">Amount</th>
+                                    <th style="width:36px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="items-tbody"></tbody>
+                            <tfoot>
+                                <tr class="items-footer-row">
+                                    <td colspan="6" class="text-right">Items Subtotal</td>
+                                    <td class="item-amount-cell" id="items-subtotal">₹0</td>
+                                    <td></td>
+                                </tr>
+                            </tfoot>
+                        </table>
                     </div>
+                    <span class="field-error" id="err-items"></span>
                 </div>
 
                 <div class="sub-section">
-                    <div class="sub-title"><i class="fas fa-warehouse"></i> Mounting Structure</div>
+                    <div class="sub-title"><i class="fas fa-warehouse"></i> Mounting Type</div>
                     <div class="radio-card-group" id="mount-group">
                         <label class="radio-card active"><input type="radio" name="mount" checked><span>RCC Roof</span></label>
                         <label class="radio-card"><input type="radio" name="mount"><span>Tin Shed</span></label>
                         <label class="radio-card"><input type="radio" name="mount"><span>Ground Mount</span></label>
                         <label class="radio-card"><input type="radio" name="mount"><span>Elevated Structure</span></label>
                     </div>
-                </div>
-
-                <div class="sub-section">
-                    <div class="sub-title"><i class="fas fa-plug"></i> Accessories</div>
-                    <div class="checklist" id="accessories-list">
-                        <label class="check-row" data-name="DC Cable"><input type="checkbox" checked> DC Cable <input type="number" class="qty-input" value="15"></label>
-                        <label class="check-row" data-name="AC Cable"><input type="checkbox" checked> AC Cable <input type="number" class="qty-input" value="10"></label>
-                        <label class="check-row" data-name="Earthing Kit"><input type="checkbox" checked> Earthing Kit <input type="number" class="qty-input" value="2"></label>
-                        <label class="check-row" data-name="Lightning Arrestor"><input type="checkbox"> Lightning Arrestor <input type="number" class="qty-input" value="1"></label>
-                        <label class="check-row" data-name="Junction Box"><input type="checkbox" checked> Junction Box <input type="number" class="qty-input" value="1"></label>
-                        <label class="check-row" data-name="Connectors"><input type="checkbox" checked> Connectors <input type="number" class="qty-input" value="6"></label>
-                        <label class="check-row" data-name="Net Meter"><input type="checkbox" id="f-netmeter"> Net Meter <span class="optional-tag">(Optional)</span><input type="number" class="qty-input" value="1"></label>
-                    </div>
+                    <div class="hint-box"><i class="fas fa-lightbulb"></i> Used as the "Type" label if you quick-add a Mounting Structure item above.</div>
                 </div>
             </div>
 
@@ -429,13 +412,9 @@
                     <table class="data-table cost-table">
                         <thead><tr><th>Cost Head</th><th class="text-right">Amount (₹)</th></tr></thead>
                         <tbody>
-                            <tr><td>Solar Panel Cost <span class="auto-tag">auto</span></td><td class="text-right" id="cost-panel">0</td></tr>
-                            <tr><td>Inverter Cost <span class="auto-tag">auto</span></td><td class="text-right" id="cost-inverter">0</td></tr>
-                            <tr><td>Structure Cost <span class="auto-tag">auto</span></td><td class="text-right" id="cost-structure">0</td></tr>
-                            <tr><td>Electrical Accessories <span class="auto-tag">auto</span></td><td class="text-right" id="cost-accessories">0</td></tr>
+                            <tr><td>Items Subtotal <span class="auto-tag">from Products step</span></td><td class="text-right" id="cost-items">0</td></tr>
                             <tr><td>Installation Charges</td><td class="text-right"><input type="number" class="cost-input" id="cost-installation" value="8000"></td></tr>
                             <tr><td>Transportation Charges</td><td class="text-right"><input type="number" class="cost-input" id="cost-transport" value="2500"></td></tr>
-                            <tr><td>Net Meter Charges</td><td class="text-right"><input type="number" class="cost-input" id="cost-netmeter" value="3500"></td></tr>
                             <tr>
                                 <td><input type="text" class="cost-label-input" id="cost-other-label" placeholder="Other charges label" value="Other Charges"></td>
                                 <td class="text-right"><input type="number" class="cost-input" id="cost-other" value="0"></td>
@@ -493,9 +472,9 @@
                 <div class="panel-title">Generate Quotation</div>
                 <div class="invoice-preview" id="invoice-preview"></div>
                 <div class="share-grid hidden" id="share-grid">
-                    <button class="btn-outline"><i class="fas fa-download"></i> Download PDF</button>
-                    <button class="btn-outline"><i class="fas fa-envelope"></i> Share via Email</button>
-                    <button class="btn-outline"><i class="fab fa-whatsapp"></i> Share via WhatsApp</button>
+                    <button class="btn-outline" id="btn-download-pdf"><i class="fas fa-download"></i> Download PDF</button>
+                    <button class="btn-outline" id="btn-share-email"><i class="fas fa-envelope"></i> Share via Email</button>
+                    <button class="btn-outline" id="btn-share-whatsapp"><i class="fab fa-whatsapp"></i> Share via WhatsApp</button>
                 </div>
             </div>
         </div>
@@ -519,6 +498,7 @@
             <div class="invoice-preview" id="view-invoice-preview"></div>
         </div>
         <div class="modal-foot">
+            <button class="btn-outline" id="btn-view-download-pdf"><i class="fas fa-download"></i> Download PDF</button>
             <button class="btn-outline" data-close="modal-view">Close</button>
         </div>
     </div>
@@ -594,6 +574,7 @@
         </div>
     </div>
 </div>
+
 
 <!-- Toast Container -->
 <div id="toast-container" class="toast-container"></div>

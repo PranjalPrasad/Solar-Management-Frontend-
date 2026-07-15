@@ -5,6 +5,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Product Management — Solar Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { theme: { extend: { colors: { active: '#111844', border2: '#4B5694', bg: '#FAFAFA', hover2: '#7288AE', card: '#FFFCFC', dark: '#1a2155' } } } }</script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/product/product.css">
@@ -13,49 +15,68 @@
 <body>
 
 <!-- ============ SIDEBAR ============ -->
-<aside id="sidebar" class="sidebar">
-    <div class="sidebar-head">
-        <div class="brand">
-            <img src="/img/logo.png" alt="Company Logo" class="brand-logo">
-        </div>
-        <button id="sidebar-toggle" class="icon-btn">
+<aside id="sidebar" class="fixed top-0 left-0 h-full w-[260px] bg-[#FFFCFC] z-[100] flex flex-col transition-all duration-300 overflow-hidden shadow-lg">
+    <div class="flex items-center justify-between px-5 h-16 border border-[#4B5694]/20 shadow-sm">
+        <div class="flex items-center gap-3">
+    <div class="w-9 h-9 rounded-lg bg-[#111844] flex items-center justify-center text-[#FAFAFA] flex-shrink-0">
+        <i class="fas fa-solar-panel"></i>
+    </div>
+    <div class="sidebar-brand-text flex flex-col">
+        <img src="/img/logo.png" alt="Logo" class="h-6 w-auto object-contain" />
+    </div>
+</div>
+        <button id="sidebar-toggle" class="w-7 h-7 flex items-center justify-center rounded-lg text-[#4B5694] hover:bg-[#4B5694]/10 transition-colors">
             <i class="fas fa-chevron-left text-sm"></i>
         </button>
     </div>
 
-    <nav class="sidebar-nav">
-        <a href="/Dashboard/dashboard.html" class="nav-item">
-            <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
+    <nav class="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+
+        <!-- DASHBOARD -->
+        <a href="/Dashboard/dashboard.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm">
+            <span class="nav-icon text-base flex-shrink-0 w-5"><i class="fas fa-chart-pie"></i></span>
             <span class="nav-label">Dashboard</span>
         </a>
-        <a href="/quotation/quotation.html" class="nav-item">
-            <span class="nav-icon"><i class="fas fa-file-invoice-dollar"></i></span>
+
+        <!-- QUOTATION TEMPLATE -->
+        <a href="/quotation/quotation.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg  text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm">
+            <span class="nav-icon text-base flex-shrink-0 w-5"><i class="fas fa-file-invoice-dollar"></i></span>
             <span class="nav-label">Quotation Management</span>
         </a>
-        <a href="/product/product.html" class="nav-item nav-active">
-            <span class="nav-icon"><i class="fas fa-box"></i></span>
+
+        <!-- PRODUCT MANAGEMENT -->
+        <a href="/product/product.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm nav-active">
+            <span class="nav-icon text-base flex-shrink-0 w-5"><i class="fas fa-solar-panel"></i></span>
             <span class="nav-label">Product Management</span>
         </a>
-        <a href="/vendor/vendor.html" class="nav-item">
-            <span class="nav-icon"><i class="fas fa-truck-loading"></i></span>
+
+        <!-- VENDOR MANAGEMENT -->
+        <a href="/vendor/vendor.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm">
+            <span class="nav-icon text-base flex-shrink-0 w-5"><i class="fas fa-truck-loading"></i></span>
             <span class="nav-label">Vendor Management</span>
         </a>
-        <a href="/reports/reports.html" class="nav-item">
-            <span class="nav-icon"><i class="fas fa-chart-bar"></i></span>
+
+        <!-- REPORTS -->
+        <a href="/reports/reports.html" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-[#111844]/70 hover:bg-[#7288AE]/20 hover:text-[#111844] transition-colors duration-150 text-sm cursor-pointer border-b border-[#4B5694]/20 shadow-sm">
+            <span class="nav-icon text-base flex-shrink-0 w-5"><i class="fas fa-chart-bar"></i></span>
             <span class="nav-label">Reports Management</span>
         </a>
-      
+
     </nav>
+
+    <div class="px-4 py-3 border-t border-[#4B5694]/15">
+        <div class="sidebar-brand-text text-[10px] text-[#7288AE]">Role: <span class="font-semibold text-[#111844]">Admin</span></div>
+    </div>
 </aside>
 
-<div id="sidebar-overlay" class="sidebar-overlay"></div>
+<div id="sidebar-overlay" class="hidden fixed inset-0 bg-[#111844]/50 z-[90] lg:hidden"></div>
 
 <!-- ============ MAIN ============ -->
 <div id="main-wrapper" class="main-wrapper">
 
     <header class="topbar">
         <div class="topbar-left">
-            <button id="mobile-sidebar-toggle" class="icon-btn lg-hidden">
+            <button id="mobile-sidebar-toggle" class="lg-hidden w-9 h-9 flex items-center justify-center rounded-lg text-[#4B5694] hover:bg-[#4B5694]/10">
             </button>
             <div>
                 <h1 class="page-title">Product Management</h1>
