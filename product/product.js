@@ -126,6 +126,9 @@
 
     // ---------------------------------------------------
     // 4. Seed data (replace with API call to your backend)
+    //    Pricing: mrp (₹), price = selling price (₹), discount (%)
+    //    BOQ:     qtyPerKw = default quantity of this product required
+    //             per 1 kW of system capacity (unit follows p.unit)
     // ---------------------------------------------------
     const CATEGORY_META = {
         'Solar Panel': { icon: 'fa-solar-panel', cls: 'bg-panel' },
@@ -137,18 +140,18 @@
     };
 
     let products = [
-        { id: 'P-1001', name: '540W Mono PERC Solar Panel', category: 'Solar Panel', brand: 'Waaree', sku: 'WR-540-MP', spec: '540W, 24V', unit: 'Nos', price: 12500, stock: 84, threshold: 20, status: 'Active', description: '25-year performance warranty, anti-reflective glass.' },
-        { id: 'P-1002', name: '5kW Hybrid Solar Inverter', category: 'Inverter', brand: 'Luminous', sku: 'LM-HYB-5K', spec: '5kW, MPPT', unit: 'Nos', price: 68000, stock: 6, threshold: 5, status: 'Active', description: 'Dual MPPT hybrid inverter with WiFi monitoring.' },
-        { id: 'P-1003', name: 'Lithium Battery 10kWh', category: 'Battery', brand: 'Exide', sku: 'EX-LI-10K', spec: '10kWh, 51.2V', unit: 'Nos', price: 145000, stock: 0, threshold: 3, status: 'Active', description: 'LiFePO4 battery, 6000+ cycle life.' },
-        { id: 'P-1004', name: 'GI Mounting Structure (3kW)', category: 'Mounting Structure', brand: 'Tata Power', sku: 'TP-MS-3K', spec: 'For 6 panels', unit: 'Set', price: 8500, stock: 22, threshold: 5, status: 'Active', description: 'Hot-dip galvanized rooftop structure.' },
-        { id: 'P-1005', name: 'DC Solar Cable 4mm²', category: 'Cable & Wiring', brand: 'Polycab', sku: 'PC-DC-4MM', spec: '4mm², 1.5kV', unit: 'Meter', price: 32, stock: 1200, threshold: 200, status: 'Active', description: 'UV-resistant single-core DC cable.' },
-        { id: 'P-1006', name: '440W Mono PERC Solar Panel', category: 'Solar Panel', brand: 'Adani Solar', sku: 'AD-440-MP', spec: '440W, 24V', unit: 'Nos', price: 10200, stock: 15, threshold: 20, status: 'Active', description: '25-year linear performance warranty.' },
-        { id: 'P-1007', name: '3kW On-Grid Inverter', category: 'Inverter', brand: 'Growatt', sku: 'GW-OG-3K', spec: '3kW, Single Phase', unit: 'Nos', price: 32000, stock: 11, threshold: 5, status: 'Active', description: 'Compact on-grid string inverter.' },
-        { id: 'P-1008', name: 'MC4 Connector Pair', category: 'Accessory', brand: 'Staubli', sku: 'ST-MC4-P', spec: 'IP68 rated', unit: 'Box', price: 450, stock: 3, threshold: 10, status: 'Active', description: 'Weatherproof solar connectors, box of 50 pairs.' },
-        { id: 'P-1009', name: 'Tubular Battery 150Ah', category: 'Battery', brand: 'Exide', sku: 'EX-TB-150', spec: '150Ah, 12V', unit: 'Nos', price: 18500, stock: 9, threshold: 5, status: 'Inactive', description: 'Discontinued — replaced by lithium range.' },
-        { id: 'P-1010', name: 'AC Distribution Box', category: 'Accessory', brand: 'Havells', sku: 'HV-ACDB-1', spec: 'Single Phase', unit: 'Nos', price: 2200, stock: 18, threshold: 5, status: 'Active', description: 'With SPD and MCB protection.' },
-        { id: 'P-1011', name: 'Elevated Structure (10kW)', category: 'Mounting Structure', brand: 'Tata Power', sku: 'TP-MS-10K', spec: 'For 20 panels', unit: 'Set', price: 24000, stock: 4, threshold: 5, status: 'Active', description: 'For ground-mount / elevated rooftop installs.' },
-        { id: 'P-1012', name: 'AC Cable 6mm²', category: 'Cable & Wiring', brand: 'Polycab', sku: 'PC-AC-6MM', spec: '6mm², 3-core', unit: 'Meter', price: 58, stock: 0, threshold: 100, status: 'Active', description: 'Armoured AC output cable.' }
+        { id: 'P-1001', name: '540W Mono PERC Solar Panel', category: 'Solar Panel', brand: 'Waaree', sku: 'WR-540-MP', spec: '540W, 24V', unit: 'Nos', mrp: 13800, price: 12500, discount: 9, qtyPerKw: 1.85, stock: 84, threshold: 20, status: 'Active', description: '25-year performance warranty, anti-reflective glass.' },
+        { id: 'P-1002', name: '5kW Hybrid Solar Inverter', category: 'Inverter', brand: 'Luminous', sku: 'LM-HYB-5K', spec: '5kW, MPPT', unit: 'Nos', mrp: 75000, price: 68000, discount: 9, qtyPerKw: 0.2, stock: 6, threshold: 5, status: 'Active', description: 'Dual MPPT hybrid inverter with WiFi monitoring.' },
+        { id: 'P-1003', name: 'Lithium Battery 10kWh', category: 'Battery', brand: 'Exide', sku: 'EX-LI-10K', spec: '10kWh, 51.2V', unit: 'Nos', mrp: 160000, price: 145000, discount: 9, qtyPerKw: 0.5, stock: 0, threshold: 3, status: 'Active', description: 'LiFePO4 battery, 6000+ cycle life.' },
+        { id: 'P-1004', name: 'GI Mounting Structure (3kW)', category: 'Mounting Structure', brand: 'Tata Power', sku: 'TP-MS-3K', spec: 'For 6 panels', unit: 'Set', mrp: 9200, price: 8500, discount: 8, qtyPerKw: 0.33, stock: 22, threshold: 5, status: 'Active', description: 'Hot-dip galvanized rooftop structure.' },
+        { id: 'P-1005', name: 'DC Solar Cable 4mm²', category: 'Cable & Wiring', brand: 'Polycab', sku: 'PC-DC-4MM', spec: '4mm², 1.5kV', unit: 'Meter', mrp: 36, price: 32, discount: 11, qtyPerKw: 5, stock: 1200, threshold: 200, status: 'Active', description: 'UV-resistant single-core DC cable.' },
+        { id: 'P-1006', name: '440W Mono PERC Solar Panel', category: 'Solar Panel', brand: 'Adani Solar', sku: 'AD-440-MP', spec: '440W, 24V', unit: 'Nos', mrp: 11500, price: 10200, discount: 11, qtyPerKw: 2.27, stock: 15, threshold: 20, status: 'Active', description: '25-year linear performance warranty.' },
+        { id: 'P-1007', name: '3kW On-Grid Inverter', category: 'Inverter', brand: 'Growatt', sku: 'GW-OG-3K', spec: '3kW, Single Phase', unit: 'Nos', mrp: 35000, price: 32000, discount: 9, qtyPerKw: 0.33, stock: 11, threshold: 5, status: 'Active', description: 'Compact on-grid string inverter.' },
+        { id: 'P-1008', name: 'MC4 Connector Pair', category: 'Accessory', brand: 'Staubli', sku: 'ST-MC4-P', spec: 'IP68 rated', unit: 'Box', mrp: 520, price: 450, discount: 13, qtyPerKw: 0.1, stock: 3, threshold: 10, status: 'Active', description: 'Weatherproof solar connectors, box of 50 pairs.' },
+        { id: 'P-1009', name: 'Tubular Battery 150Ah', category: 'Battery', brand: 'Exide', sku: 'EX-TB-150', spec: '150Ah, 12V', unit: 'Nos', mrp: 20000, price: 18500, discount: 8, qtyPerKw: 0.2, stock: 9, threshold: 5, status: 'Inactive', description: 'Discontinued — replaced by lithium range.' },
+        { id: 'P-1010', name: 'AC Distribution Box', category: 'Accessory', brand: 'Havells', sku: 'HV-ACDB-1', spec: 'Single Phase', unit: 'Nos', mrp: 2500, price: 2200, discount: 12, qtyPerKw: 0.1, stock: 18, threshold: 5, status: 'Active', description: 'With SPD and MCB protection.' },
+        { id: 'P-1011', name: 'Elevated Structure (10kW)', category: 'Mounting Structure', brand: 'Tata Power', sku: 'TP-MS-10K', spec: 'For 20 panels', unit: 'Set', mrp: 26500, price: 24000, discount: 9, qtyPerKw: 0.1, stock: 4, threshold: 5, status: 'Active', description: 'For ground-mount / elevated rooftop installs.' },
+        { id: 'P-1012', name: 'AC Cable 6mm²', category: 'Cable & Wiring', brand: 'Polycab', sku: 'PC-AC-6MM', spec: '6mm², 3-core', unit: 'Meter', mrp: 65, price: 58, discount: 11, qtyPerKw: 3, stock: 0, threshold: 100, status: 'Active', description: 'Armoured AC output cable.' }
     ];
 
     // ---------------------------------------------------
@@ -199,6 +202,7 @@
                 case 'category': av = a.category; bv = b.category; break;
                 case 'brand': av = a.brand; bv = b.brand; break;
                 case 'spec': av = a.spec; bv = b.spec; break;
+                case 'qtyPerKw': av = a.qtyPerKw; bv = b.qtyPerKw; break;
                 case 'price': av = a.price; bv = b.price; break;
                 case 'stock': av = a.stock; bv = b.stock; break;
                 case 'status': av = computeStatusLabel(a); bv = computeStatusLabel(b); break;
@@ -229,6 +233,7 @@
         document.getElementById('stat-total').textContent = products.length.toLocaleString('en-IN');
         document.getElementById('stat-active').textContent = products.filter(p => computeStatusLabel(p) === 'Active').length.toLocaleString('en-IN');
         document.getElementById('stat-low').textContent = products.filter(p => ['Low Stock', 'Out of Stock'].includes(computeStatusLabel(p))).length.toLocaleString('en-IN');
+        // Inventory value is based on selling price (price), not MRP
         const totalValue = products.reduce((sum, p) => sum + (p.price * p.stock), 0);
         document.getElementById('stat-value').textContent = formatINR(totalValue);
     }
@@ -237,6 +242,12 @@
         const div = document.createElement('div');
         div.textContent = str ?? '';
         return div.innerHTML;
+    }
+
+    function formatQtyPerKw(p) {
+        const val = (p.qtyPerKw ?? 0);
+        const formatted = Number.isInteger(val) ? val : val.toFixed(2).replace(/\.?0+$/, '');
+        return `<span class="qtykw-value">${formatted}</span><span class="qtykw-unit">${escapeHtml(p.unit)}/kW</span>`;
     }
 
     function render() {
@@ -253,6 +264,7 @@
         pageItems.forEach(p => {
             const label = computeStatusLabel(p);
             const meta = CATEGORY_META[p.category] || { icon: 'fa-box', cls: 'bg-slate' };
+            const hasDiscount = p.mrp && p.mrp > p.price;
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>
@@ -267,7 +279,13 @@
                 <td>${escapeHtml(p.category)}</td>
                 <td>${escapeHtml(p.brand)}</td>
                 <td>${escapeHtml(p.spec || '—')}</td>
-                <td>₹${p.price.toLocaleString('en-IN')}</td>
+                <td>${formatQtyPerKw(p)}</td>
+                <td>
+                    <div class="price-cell">
+                        ${hasDiscount ? `<span class="price-mrp">₹${p.mrp.toLocaleString('en-IN')}</span>` : ''}
+                        <span class="price-selling">₹${p.price.toLocaleString('en-IN')}${hasDiscount ? `<span class="discount-badge">${p.discount || Math.round((p.mrp - p.price) / p.mrp * 100)}% OFF</span>` : ''}</span>
+                    </div>
+                </td>
                 <td>${p.stock} ${escapeHtml(p.unit)}</td>
                 <td><span class="badge ${badgeClass(label)}">${label}</span></td>
                 <td>
@@ -385,16 +403,55 @@
         sku: document.getElementById('pf-sku'),
         spec: document.getElementById('pf-spec'),
         unit: document.getElementById('pf-unit'),
+        mrp: document.getElementById('pf-mrp'),
+        discount: document.getElementById('pf-discount'),
         price: document.getElementById('pf-price'),
         stock: document.getElementById('pf-stock'),
         threshold: document.getElementById('pf-threshold'),
+        qtyPerKw: document.getElementById('pf-qtyperkw'),
         status: document.getElementById('pf-status'),
         description: document.getElementById('pf-description')
     };
     const modalTitle = document.getElementById('product-modal-title');
 
+    // ---- Auto-calc: MRP + Discount% -> Selling Price (still manually overridable) ----
+    let priceManuallyEdited = false;
+
+    function recalcPriceFromDiscount() {
+        const mrp = parseFloat(form.mrp.value);
+        const discount = parseFloat(form.discount.value);
+        if (!isNaN(mrp) && mrp > 0 && !isNaN(discount) && discount >= 0 && discount <= 100) {
+            const calculated = mrp - (mrp * discount / 100);
+            form.price.value = Math.round(calculated * 100) / 100;
+            priceManuallyEdited = false;
+        }
+    }
+
+    function recalcDiscountFromPrice() {
+        const mrp = parseFloat(form.mrp.value);
+        const price = parseFloat(form.price.value);
+        if (!isNaN(mrp) && mrp > 0 && !isNaN(price) && price >= 0) {
+            const calculated = ((mrp - price) / mrp) * 100;
+            form.discount.value = Math.round(calculated * 100) / 100;
+        }
+    }
+
+    form.mrp.addEventListener('input', () => {
+        if (priceManuallyEdited && form.price.value !== '') {
+            recalcDiscountFromPrice();
+        } else {
+            recalcPriceFromDiscount();
+        }
+    });
+    form.discount.addEventListener('input', recalcPriceFromDiscount);
+    form.price.addEventListener('input', () => {
+        priceManuallyEdited = true;
+        recalcDiscountFromPrice();
+    });
+
     function openProductModal(product) {
         clearErrors();
+        priceManuallyEdited = false;
         if (product) {
             modalTitle.innerHTML = '<i class="fas fa-pen"></i> Edit Product';
             form.id.value = product.id;
@@ -404,9 +461,12 @@
             form.sku.value = product.sku;
             form.spec.value = product.spec;
             form.unit.value = product.unit;
+            form.mrp.value = product.mrp ?? '';
+            form.discount.value = product.discount ?? '';
             form.price.value = product.price;
             form.stock.value = product.stock;
             form.threshold.value = product.threshold;
+            form.qtyPerKw.value = product.qtyPerKw ?? '';
             form.status.value = product.status;
             form.description.value = product.description || '';
         } else {
@@ -450,12 +510,28 @@
             setFieldError(form.brand, 'err-pf-brand', 'Brand is required');
             valid = false;
         }
+        if (form.mrp.value === '' || Number(form.mrp.value) < 0) {
+            setFieldError(form.mrp, 'err-pf-mrp', 'Enter a valid MRP');
+            valid = false;
+        }
+        if (form.discount.value !== '' && (Number(form.discount.value) < 0 || Number(form.discount.value) > 100)) {
+            setFieldError(form.discount, 'err-pf-discount', 'Discount must be between 0–100%');
+            valid = false;
+        }
         if (form.price.value === '' || Number(form.price.value) < 0) {
-            setFieldError(form.price, 'err-pf-price', 'Enter a valid unit price');
+            setFieldError(form.price, 'err-pf-price', 'Enter a valid selling price');
+            valid = false;
+        }
+        if (form.mrp.value !== '' && form.price.value !== '' && Number(form.price.value) > Number(form.mrp.value)) {
+            setFieldError(form.price, 'err-pf-price', 'Selling price cannot exceed MRP');
             valid = false;
         }
         if (form.stock.value === '' || Number(form.stock.value) < 0) {
             setFieldError(form.stock, 'err-pf-stock', 'Enter a valid stock quantity');
+            valid = false;
+        }
+        if (form.qtyPerKw.value === '' || Number(form.qtyPerKw.value) < 0) {
+            setFieldError(form.qtyPerKw, 'err-pf-qtyperkw', 'Enter a valid quantity per kW (0 if not applicable)');
             valid = false;
         }
         return valid;
@@ -475,9 +551,12 @@
             sku: form.sku.value.trim(),
             spec: form.spec.value.trim(),
             unit: form.unit.value,
+            mrp: Number(form.mrp.value),
+            discount: form.discount.value !== '' ? Number(form.discount.value) : Math.round(((Number(form.mrp.value) - Number(form.price.value)) / Number(form.mrp.value)) * 100),
             price: Number(form.price.value),
             stock: Number(form.stock.value),
             threshold: Number(form.threshold.value || 10),
+            qtyPerKw: Number(form.qtyPerKw.value),
             status: form.status.value,
             description: form.description.value.trim()
         };
@@ -502,6 +581,7 @@
     function openViewModal(p) {
         const label = computeStatusLabel(p);
         const meta = CATEGORY_META[p.category] || { icon: 'fa-box', cls: 'bg-slate' };
+        const hasDiscount = p.mrp && p.mrp > p.price;
         viewBody.innerHTML = `
             <div class="view-head">
                 <div class="row-icon ${meta.cls}"><i class="fas ${meta.icon}"></i></div>
@@ -513,9 +593,11 @@
             <div class="view-grid">
                 <div class="view-item"><div class="view-label">Category</div><div class="view-value">${escapeHtml(p.category)}</div></div>
                 <div class="view-item"><div class="view-label">Specification</div><div class="view-value">${escapeHtml(p.spec || '—')}</div></div>
-                <div class="view-item"><div class="view-label">Unit Price</div><div class="view-value">₹${p.price.toLocaleString('en-IN')} / ${escapeHtml(p.unit)}</div></div>
+                <div class="view-item"><div class="view-label">MRP</div><div class="view-value">₹${(p.mrp ?? p.price).toLocaleString('en-IN')}</div></div>
+                <div class="view-item"><div class="view-label">Selling Price</div><div class="view-value">₹${p.price.toLocaleString('en-IN')} / ${escapeHtml(p.unit)}${hasDiscount ? ` <span class="discount-badge">${p.discount || Math.round((p.mrp - p.price) / p.mrp * 100)}% OFF</span>` : ''}</div></div>
                 <div class="view-item"><div class="view-label">Stock</div><div class="view-value">${p.stock} ${escapeHtml(p.unit)}</div></div>
                 <div class="view-item"><div class="view-label">Status</div><div class="view-value"><span class="badge ${badgeClass(label)}">${label}</span></div></div>
+                <div class="view-item"><div class="view-label">Default Qty / kW (BOQ)</div><div class="view-value">${p.qtyPerKw ?? 0} ${escapeHtml(p.unit)}/kW</div></div>
                 <div class="view-item"><div class="view-label">Low Stock Threshold</div><div class="view-value">${p.threshold}</div></div>
             </div>
             ${p.description ? `<div class="view-desc">${escapeHtml(p.description)}</div>` : ''}
@@ -548,5 +630,13 @@
     // 11. Initial render
     // ---------------------------------------------------
     render();
+
+    // Expose product data for BOQ auto-generation logic elsewhere in the app
+    // (e.g. quotation.js can read window.SolarProducts to pull qtyPerKw ratios)
+    window.SolarProducts = {
+        getAll: () => products,
+        getById: (id) => products.find(p => p.id === id),
+        getByCategory: (category) => products.filter(p => p.category === category)
+    };
 
 })();

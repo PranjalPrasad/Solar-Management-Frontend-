@@ -403,6 +403,25 @@ body {
 .form-field input:focus, .form-field textarea:focus, .form-field select:focus { border-color: var(--active); box-shadow: 0 0 0 3px rgba(17,24,68,0.08); }
 .form-field input.invalid, .form-field textarea.invalid, .form-field select.invalid { border-color: #dc2626; }
 .field-error { font-size: 10.5px; color: #dc2626; min-height: 12px; }
+.field-hint { font-size: 10.5px; color: var(--hover2); min-height: 12px; }
+
+/* Pricing group inside form */
+.form-subgroup {
+    grid-column: span 2;
+    border: 1px dashed rgba(75,86,148,0.3);
+    border-radius: 10px;
+    padding: 12px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+}
+.form-subgroup-title {
+    grid-column: 1 / -1;
+    font-size: 11px; font-weight: 700; color: var(--active);
+    display: flex; align-items: center; gap: 6px;
+    margin-bottom: -2px;
+}
+.form-subgroup-title i { color: var(--hover2); }
 
 /* View product modal */
 .view-head { display: flex; align-items: center; gap: 12px; padding-bottom: 14px; border-bottom: 1px solid rgba(75,86,148,0.15); }
@@ -411,6 +430,19 @@ body {
 .view-item .view-label { color: var(--hover2); font-size: 10.5px; margin-bottom: 2px; }
 .view-item .view-value { font-weight: 600; color: var(--active); }
 .view-desc { font-size: 12px; color: var(--active); line-height: 1.6; padding-top: 12px; border-top: 1px solid rgba(75,86,148,0.12); }
+
+/* Price cell (table) — MRP struck-through + selling price + discount badge */
+.price-cell { display: flex; flex-direction: column; gap: 2px; }
+.price-mrp { font-size: 10px; color: var(--hover2); text-decoration: line-through; }
+.price-selling { font-weight: 700; color: var(--active); display: flex; align-items: center; gap: 6px; }
+.discount-badge {
+    font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 999px;
+    background: #fee2e2; color: #b91c1c; white-space: nowrap;
+}
+
+/* Qty/kW cell */
+.qtykw-value { font-weight: 600; color: var(--active); }
+.qtykw-unit { font-size: 10px; color: var(--hover2); margin-left: 3px; }
 
 /* ================= TOAST ================= */
 .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 600; display: flex; flex-direction: column; gap: 8px; max-width: calc(100vw - 40px); }
@@ -440,6 +472,7 @@ body {
     .content { padding: 12px; }
     .form-grid { grid-template-columns: 1fr; }
     .form-field.span-2 { grid-column: span 1; }
+    .form-subgroup { grid-column: span 1; grid-template-columns: 1fr; }
     .stat-grid { grid-template-columns: repeat(2, 1fr); }
     .modal-overlay { padding: 0; align-items: flex-end; }
     .modal-box { max-width: 100%; max-height: 96vh; border-radius: 16px 16px 0 0; }

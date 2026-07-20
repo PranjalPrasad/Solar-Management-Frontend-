@@ -13,6 +13,61 @@ const COMPANY = {
     logo: '../img/logo.png'
 };
 
+/* =====================================================================
+   PM SURYA GHAR SUBSIDY CALCULATOR
+   Official CFA (Central Financial Assistance) slabs as per MNRE /
+   pmsuryaghar.gov.in (verified 2026). Keep this config in one place so
+   it's easy to update if the government revises the slabs.
+   ===================================================================== */
+const SUBSIDY_CONFIG = {
+    residentialPerKwUpto2: 30000,  // ₹30,000 per kW for the first 2 kW
+    residentialThirdKw: 18000,     // ₹18,000 for the 3rd kW
+    residentialMaxCap: 78000,      // capped at ₹78,000 for 3 kW and above
+    ghsPerKw: 18000,                // Group Housing Society / RWA — ₹18,000/kW for common facilities
+    ghsMaxKw: 500                   // GHS/RWA subsidy capped at 500 kW system size
+};
+
+/* Consumer Category + System Capacity -> Government Subsidy (₹).
+   Commercial/Institutional consumers are NOT eligible for the central
+   CFA subsidy under PM Surya Ghar (they can separately avail accelerated
+   depreciation + GST input benefits, which this tool does not compute). */
+function computeSubsidy(category, sizeKw) {
+    sizeKw = Number(sizeKw) || 0;
+    if (category === 'Commercial') return 0;
+    if (category === 'GHS') return Math.min(sizeKw, SUBSIDY_CONFIG.ghsMaxKw) * SUBSIDY_CONFIG.ghsPerKw;
+    // Residential (default)
+    if (sizeKw <= 0) return 0;
+    if (sizeKw <= 2) return sizeKw * SUBSIDY_CONFIG.residentialPerKwUpto2;
+    if (sizeKw < 3) return (2 * SUBSIDY_CONFIG.residentialPerKwUpto2) + (sizeKw - 2) * SUBSIDY_CONFIG.residentialThirdKw;
+    return SUBSIDY_CONFIG.residentialMaxCap;
+}
+
+/* ---------------- Savings / ROI assumptions ----------------
+   Adjust these constants if your business uses different standard
+   figures (e.g. a different grid emission factor for your state). */
+const SAVINGS_CONFIG = {
+    unitsPerKwPerDay: 4,       // avg. generation assumption
+    panelDegradationPct: 0.5,  // annual panel output degradation
+    co2FactorKgPerKwh: 0.82,   // India grid emission factor (kg CO2 / kWh)
+    projectionYears: 25
+};
+
+/* Projects year-on-year savings across the panel's life, factoring in
+   both tariff escalation (electricity gets costlier) and panel output
+   degradation (panels generate slightly less each year). Returns the
+   cumulative 25-year savings total plus total units generated. */
+function computeMultiYearSavings(annualUnitsYear1, tariff, escalationPct) {
+    let totalSavings = 0, totalUnits = 0;
+    let units = annualUnitsYear1, rate = tariff;
+    for (let y = 1; y <= SAVINGS_CONFIG.projectionYears; y++) {
+        totalUnits += units;
+        totalSavings += units * rate;
+        units *= (1 - SAVINGS_CONFIG.panelDegradationPct / 100);
+        rate *= (1 + (escalationPct || 0) / 100);
+    }
+    return { totalSavings, totalUnits };
+}
+
 /* ---------------- Sidebar / Topbar chrome (fixed + collapsible) ---------------- */
 let isCollapsed = false;
 const sidebar = document.getElementById('sidebar');
@@ -107,42 +162,109 @@ function formatINR(n) {
 }
 
 /* =====================================================================
-   PRODUCT CATALOG — quick-add presets for the multi-product / multi-size
-   items builder in Step 2 of the wizard. Any item can still be freely
-   edited (name, type, qty, unit, rate) or removed.
+   PRODUCT CATALOG — the wizard's Step 2 "Products & Items" picker reads
+   the live product list published by the Product Management module
+   (see /product/product.js -> syncProductCatalogToStorage) via
+   localStorage. This keeps the two modules in sync on the client without
+   a shared backend: add/edit/delete a product there, and it shows up
+   here immediately (next time the picker is refreshed).
+
+   FALLBACK_PRODUCTS is only used if Product Management hasn't run yet in
+   this browser (e.g. very first visit, storage cleared, etc.) so the
+   picker never shows up empty.
    ===================================================================== */
-const PRODUCT_PRESETS = [
-    { key: 'panel', icon: 'fa-solar-panel', name: 'Solar Panels', type: 'Monocrystalline', qty: 3300, unit: 'W', rate: 22 },
-    { key: 'inverter', icon: 'fa-plug-circle-bolt', name: 'Inverter', type: 'String', qty: 3, unit: 'kW', rate: 6500 },
-    { key: 'structure', icon: 'fa-warehouse', name: 'Mounting Structure', type: 'RCC Roof', qty: 6, unit: 'Panel', rate: 900 },
-    { key: 'battery', icon: 'fa-car-battery', name: 'Batteries', type: 'Lead Acid', qty: 150, unit: 'AH', rate: 12 },
-    { key: 'cable', icon: 'fa-plug', name: 'DC/AC Cable', type: 'Miscellaneous', qty: 25, unit: 'Mtr', rate: 50 },
-    { key: 'breaker', icon: 'fa-bolt', name: 'Circuit Breakers', type: 'Miscellaneous', qty: 3, unit: 'Pcs', rate: 250 },
-    { key: 'earthing', icon: 'fa-plug-circle-check', name: 'Earthing Kit', type: 'Safety', qty: 2, unit: 'Set', rate: 1800 },
-    { key: 'netmeter', icon: 'fa-gauge', name: 'Net Meter', type: 'Metering', qty: 1, unit: 'Unit', rate: 3500 },
+const PRODUCT_CATALOG_STORAGE_KEY = 'solarProductCatalog';
+
+const FALLBACK_PRODUCTS = [
+    { id: 'fallback-panel', name: 'Solar Panels', category: 'Solar Panel', brand: 'Monocrystalline', spec: '', unit: 'W', price: 22, stock: null, status: 'Active' },
+    { id: 'fallback-inverter', name: 'Inverter', category: 'Inverter', brand: 'String', spec: '', unit: 'kW', price: 6500, stock: null, status: 'Active' },
+    { id: 'fallback-structure', name: 'Mounting Structure', category: 'Mounting Structure', brand: 'RCC Roof', spec: '', unit: 'Panel', price: 900, stock: null, status: 'Active' },
+    { id: 'fallback-battery', name: 'Batteries', category: 'Battery', brand: 'Lead Acid', spec: '', unit: 'AH', price: 12, stock: null, status: 'Active' },
+    { id: 'fallback-cable', name: 'DC/AC Cable', category: 'Cable & Wiring', brand: 'Miscellaneous', spec: '', unit: 'Mtr', price: 50, stock: null, status: 'Active' },
+    { id: 'fallback-breaker', name: 'Circuit Breakers', category: 'Accessory', brand: 'Miscellaneous', spec: '', unit: 'Pcs', price: 250, stock: null, status: 'Active' },
+    { id: 'fallback-earthing', name: 'Earthing Kit', category: 'Accessory', brand: 'Safety', spec: '', unit: 'Set', price: 1800, stock: null, status: 'Active' },
+    { id: 'fallback-netmeter', name: 'Net Meter', category: 'Accessory', brand: 'Metering', spec: '', unit: 'Unit', price: 3500, stock: null, status: 'Active' },
 ];
 
 let itemIdCounter = 1;
 function newItemId() { return 'it' + (itemIdCounter++); }
 
-function buildQuickAddChips() {
-    const row = document.getElementById('quick-add-row');
-    row.innerHTML = PRODUCT_PRESETS.map(p =>
-        `<button type="button" class="chip-btn" data-preset="${p.key}"><i class="fas ${p.icon}"></i> ${p.name}</button>`
-    ).join('') + `<button type="button" class="chip-btn" id="chip-custom"><i class="fas fa-plus"></i> Custom Item</button>`;
-
-    row.querySelectorAll('[data-preset]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const preset = PRODUCT_PRESETS.find(p => p.key === btn.dataset.preset);
-            wizardItems.push({ id: newItemId(), name: preset.name, type: preset.type, qty: preset.qty, unit: preset.unit, rate: preset.rate });
-            renderItemsTable();
-        });
-    });
-    document.getElementById('chip-custom').addEventListener('click', () => {
-        wizardItems.push({ id: newItemId(), name: '', type: '', qty: 1, unit: 'Pcs', rate: 0 });
-        renderItemsTable();
-    });
+/* Reads the latest product catalog from Product Management (localStorage),
+   filtered to Active products only. Falls back to a small built-in list
+   so the picker is never empty on a fresh browser. */
+function getProductCatalog() {
+    try {
+        const raw = localStorage.getItem(PRODUCT_CATALOG_STORAGE_KEY);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length) {
+                const active = parsed.filter(p => p.status !== 'Inactive');
+                if (active.length) return active;
+            }
+        }
+    } catch (e) { /* ignore parse errors and fall back below */ }
+    return FALLBACK_PRODUCTS;
 }
+
+/* Populates the Step 2 product-selection dropdown from the live catalog,
+   grouped by category. Call this whenever the wizard is (re)opened so it
+   reflects any changes made in Product Management since it was last built. */
+function populateProductPicker() {
+    const select = document.getElementById('product-catalog-select');
+    if (!select) return;
+
+    const catalog = getProductCatalog();
+    window.__quotationProductCatalog = catalog;
+
+    if (!catalog.length) {
+        select.innerHTML = `<option value="">No products found — add some in Product Management</option>`;
+        return;
+    }
+
+    const byCategory = {};
+    catalog.forEach(p => {
+        const cat = p.category || 'Other';
+        (byCategory[cat] = byCategory[cat] || []).push(p);
+    });
+
+    select.innerHTML = `<option value="">Select a product to add…</option>` +
+        Object.keys(byCategory).sort().map(cat => `
+            <optgroup label="${escapeAttr(cat)}">
+                ${byCategory[cat].map(p => `<option value="${escapeAttr(p.id)}">${escapeAttr(p.name)}${p.brand ? ' — ' + escapeAttr(p.brand) : ''} · ₹${Number(p.price || 0).toLocaleString('en-IN')}/${escapeAttr(p.unit || 'Nos')}</option>`).join('')}
+            </optgroup>
+        `).join('');
+}
+
+document.getElementById('btn-add-catalog-product')?.addEventListener('click', () => {
+    const select = document.getElementById('product-catalog-select');
+    const qtyInput = document.getElementById('product-picker-qty');
+    if (!select || !select.value) { showToast('Select a product first.', 'error'); return; }
+
+    const catalog = window.__quotationProductCatalog || [];
+    const p = catalog.find(c => String(c.id) === select.value);
+    if (!p) return;
+
+    const qty = parseFloat(qtyInput.value) || 1;
+    wizardItems.push({
+        id: newItemId(),
+        name: p.name,
+        type: [p.brand, p.spec].filter(Boolean).join(' · ') || p.category || '',
+        qty,
+        unit: p.unit || 'Nos',
+        rate: Number(p.price) || 0
+    });
+    renderItemsTable();
+
+    // Reset the picker so the next product can be selected and added
+    select.value = '';
+    qtyInput.value = 1;
+    showToast(`${p.name} added to quotation`, 'success');
+});
+
+document.getElementById('chip-custom')?.addEventListener('click', () => {
+    wizardItems.push({ id: newItemId(), name: '', type: '', qty: 1, unit: 'Pcs', rate: 0 });
+    renderItemsTable();
+});
 
 /* ---------------- Items table (Step 2) ---------------- */
 let wizardItems = [];
@@ -154,7 +276,7 @@ function itemsSubtotal(items) {
 function renderItemsTable() {
     const tbody = document.getElementById('items-tbody');
     if (!wizardItems.length) {
-        tbody.innerHTML = `<tr class="items-empty-row"><td colspan="8">No products added yet — use the quick-add buttons above to start building this quotation.</td></tr>`;
+        tbody.innerHTML = `<tr class="items-empty-row"><td colspan="8">No products added yet — pick one from the dropdown above to start building this quotation.</td></tr>`;
     } else {
         tbody.innerHTML = wizardItems.map((it, i) => `
             <tr data-id="${it.id}">
@@ -244,31 +366,24 @@ let quoteCounter = 1000;
 function nextQuoteNo() { quoteCounter += 1; return `SQ-${quoteCounter}`; }
 
 function makeQuotation(overrides = {}) {
-    const defaultItems = [
-        { id: newItemId(), name: 'Solar Panels', type: 'Monocrystalline', qty: 3300, unit: 'W', rate: 22 },
-        { id: newItemId(), name: 'Inverter', type: 'String', qty: 3, unit: 'kW', rate: 6500 },
-        { id: newItemId(), name: 'Mounting Structure', type: 'RCC Roof', qty: 6, unit: 'Panel', rate: 900 },
-        { id: newItemId(), name: 'DC/AC Cable', type: 'Miscellaneous', qty: 25, unit: 'Mtr', rate: 50 },
-        { id: newItemId(), name: 'Earthing Kit', type: 'Safety', qty: 2, unit: 'Set', rate: 1800 },
-    ];
     const base = {
         quoteNo: nextQuoteNo(),
         date: new Date().toISOString().slice(0, 10),
         status: 'Pending',
         customer: {
             name: '', company: '', mobile: '', email: '', address: '', city: '', state: '',
-            pincode: '', consumerNo: '', commercial: false, gst: ''
+            pincode: '', consumerNo: '', consumerCategory: 'Residential', commercial: false, gst: ''
         },
         systemSizeKw: 3,
         systemSizeLabel: '3 kW',
         mounting: 'RCC Roof',
-        items: defaultItems,
+        items: itemsForSize(3),
         costs: { installation: 8000, transport: 2500, otherLabel: 'Other Charges', other: 0 },
         gstPercent: 18,
         discountType: 'percent',
         discountValue: 0,
         tariff: 8,
-        subsidy: 78000,
+        escalation: 3,
         advance: 0
     };
     const merged = { ...base, ...overrides };
@@ -282,23 +397,38 @@ function makeQuotation(overrides = {}) {
     merged.itemsTotal = itTotal;
     merged.amount = Math.round(totals.total);
     merged.balance = Math.round(totals.total - merged.advance);
-    return merged;
+    return attachSubsidyAndSavings(merged);
 }
 
-/* ---------------- Seed demo quotations ---------------- */
-function scaleItems(items, factor) {
-    return items.map(it => ({ ...it, id: newItemId(), qty: Math.round((Number(it.qty) || 0) * factor * 100) / 100 }));
-}
-const BASE_ITEMS_3KW = [
-    { name: 'Solar Panels', type: 'Monocrystalline', qty: 3300, unit: 'W', rate: 22 },
-    { name: 'Inverter', type: 'String', qty: 3, unit: 'kW', rate: 6500 },
-    { name: 'Mounting Structure', type: 'RCC Roof', qty: 6, unit: 'Panel', rate: 900 },
-    { name: 'DC/AC Cable', type: 'Miscellaneous', qty: 25, unit: 'Mtr', rate: 50 },
-    { name: 'Earthing Kit', type: 'Safety', qty: 2, unit: 'Set', rate: 1800 },
+/* =====================================================================
+   AUTOMATIC BOQ (BILL OF QUANTITY) GENERATION
+   Standard per-kW ratios used to auto-populate the Products & Items
+   table the moment a System Capacity is chosen. Items with a fixed
+   quantity (earthing, net meter, accessory set) don't scale with size;
+   everything else scales per kW. User can still freely edit/remove any
+   row afterwards — this only sets sensible defaults.
+   ===================================================================== */
+const BOQ_TEMPLATE = [
+    { name: 'Solar Panels', type: 'Monocrystalline', unit: 'W', rate: 22, qtyPerKw: 1100, fixedQty: null },
+    { name: 'Inverter', type: 'String', unit: 'kW', rate: 6500, qtyPerKw: 1, fixedQty: null },
+    { name: 'Mounting Structure', type: 'RCC Roof', unit: 'Panel', rate: 900, qtyPerKw: 2, fixedQty: null },
+    { name: 'DC/AC Cable', type: 'Miscellaneous', unit: 'Mtr', rate: 50, qtyPerKw: 8.5, fixedQty: null },
+    { name: 'Earthing Kit', type: 'Safety', unit: 'Set', rate: 1800, qtyPerKw: null, fixedQty: 2 },
+    { name: 'Circuit Breakers & Accessories', type: 'Accessory', unit: 'Set', rate: 2500, qtyPerKw: null, fixedQty: 1 },
+    { name: 'Net Meter', type: 'Accessory / Metering', unit: 'Unit', rate: 3500, qtyPerKw: null, fixedQty: 1 },
 ];
+
+/* Auto-generates the BOQ items table for a given System Capacity (kW).
+   Called whenever the wizard opens (default 3 kW) and whenever the
+   System Size dropdown is changed — this is the "Automatic BOQ
+   Generation" step. Installation Material/labor is tracked separately
+   as a cost line in Step 3 (Cost Calculation). */
 function itemsForSize(sizeKw) {
-    const factor = sizeKw / 3;
-    return BASE_ITEMS_3KW.map(it => ({ ...it, id: newItemId(), qty: Math.max(1, Math.round((Number(it.qty) || 0) * factor)) }));
+    sizeKw = Number(sizeKw) || 3;
+    return BOQ_TEMPLATE.map(t => {
+        const qty = t.fixedQty != null ? t.fixedQty : Math.max(1, Math.round(t.qtyPerKw * sizeKw));
+        return { id: newItemId(), name: t.name, type: t.type, qty, unit: t.unit, rate: t.rate };
+    });
 }
 
 let quotations = [
@@ -536,6 +666,29 @@ function buildInvoiceMarkup(q) {
                 <tr><td>Balance</td><td>${formatINR(q.total - q.advance)}</td></tr>
             </table>
         </div>
+        <div class="inv-totals" style="margin-top:14px;">
+            <div class="inv-words">
+                <div class="inv-label">PM Surya Ghar Subsidy Calculator</div>
+                <table class="inv-totals-table" style="min-width:100%;">
+                    <tr><td>Consumer Category</td><td>${q.customer.consumerCategory === 'GHS' ? 'Group Housing Society / RWA' : (q.customer.consumerCategory || 'Residential')}</td></tr>
+                    <tr><td>System Capacity</td><td>${q.systemSizeLabel}</td></tr>
+                    <tr><td>Government Subsidy</td><td>${formatINR(q.subsidy || 0)}</td></tr>
+                    <tr class="total-row"><td>Net Investment / Customer Payable</td><td>${formatINR(q.netInvestment != null ? q.netInvestment : Math.max(0, q.total - (q.subsidy || 0)))}</td></tr>
+                </table>
+            </div>
+            <div class="inv-words">
+                <div class="inv-label">Savings Calculator</div>
+                <table class="inv-totals-table" style="min-width:100%;">
+                    <tr><td>Annual Generation</td><td>${Math.round(q.annualUnits || 0).toLocaleString('en-IN')} kWh</td></tr>
+                    <tr><td>Monthly Savings</td><td>${formatINR(q.monthlySavings || 0)}</td></tr>
+                    <tr><td>Annual Savings</td><td>${formatINR(q.annualSavings || 0)}</td></tr>
+                    <tr><td>25-Year Savings Estimate</td><td>${formatINR(q.savings25yr || 0)}</td></tr>
+                    <tr><td>Carbon Reduction (25 yrs)</td><td>${(q.carbon25yrTonnes || 0).toFixed(1)} tCO₂</td></tr>
+                    <tr><td>ROI (Annual)</td><td>${(q.roiPercent || 0).toFixed(1)}%</td></tr>
+                    <tr class="total-row"><td>Payback Period</td><td>${(q.paybackYears || 0).toFixed(1)} years</td></tr>
+                </table>
+            </div>
+        </div>
         <div class="inv-seal">Company Seal & Signature</div>
     `;
 }
@@ -684,7 +837,7 @@ function resetWizardForm() {
     document.getElementById('f-state').value = '';
     document.getElementById('f-pincode').value = '';
     document.getElementById('f-consumerNo').value = '';
-    document.getElementById('f-commercial').checked = false;
+    document.getElementById('f-consumerCategory').value = 'Residential';
     document.getElementById('f-gst').value = '';
     document.getElementById('gst-field').classList.add('hidden');
     document.getElementById('f-systemSize').value = '3';
@@ -698,6 +851,11 @@ function resetWizardForm() {
     wizardItems = itemsForSize(3);
     renderItemsTable();
 
+    // Refresh the product picker from Product Management every time the
+    // wizard opens, so newly added/edited products show up immediately.
+    populateProductPicker();
+    document.getElementById('product-picker-qty').value = 1;
+
     document.getElementById('cost-installation').value = 8000;
     document.getElementById('cost-transport').value = 2500;
     document.getElementById('cost-other').value = 0;
@@ -706,7 +864,7 @@ function resetWizardForm() {
     document.getElementById('f-discountType').value = 'percent';
     document.getElementById('f-discountValue').value = 0;
     document.getElementById('f-tariff').value = 8;
-    document.getElementById('f-subsidy').value = 78000;
+    document.getElementById('f-escalation').value = 3;
     document.querySelectorAll('.field-error').forEach(e => e.textContent = '');
     document.querySelectorAll('.invalid').forEach(e => e.classList.remove('invalid'));
     document.getElementById('share-grid').classList.add('hidden');
@@ -735,6 +893,7 @@ function goToStep(step) {
     document.getElementById('btn-next').classList.toggle('hidden', step === totalWizardSteps);
     document.getElementById('btn-generate').classList.toggle('hidden', step !== totalWizardSteps);
 
+    if (step === 2) populateProductPicker(); // pick up any catalog changes made mid-wizard too
     if (step === 3) computeCosts();
     if (step === 4) computeGstSummary();
     if (step === 5) computeSavings();
@@ -781,7 +940,7 @@ function validateStep1() {
     const pincode = document.getElementById('f-pincode').value.trim();
     ok = markError('f-pincode', 'err-pincode', /^\d{6}$/.test(pincode) ? '' : 'Enter a valid 6-digit pincode') && ok;
 
-    if (document.getElementById('f-commercial').checked) {
+    if (document.getElementById('f-consumerCategory').value === 'Commercial') {
         const gst = document.getElementById('f-gst').value.trim();
         ok = markError('f-gst', 'err-gst', /^[0-9A-Z]{15}$/i.test(gst) ? '' : 'Enter a valid 15-character GSTIN') && ok;
     }
@@ -809,19 +968,39 @@ function validateStep2() {
     return ok;
 }
 
-// Commercial toggle -> reveal GST field
-document.getElementById('f-commercial').addEventListener('change', (e) => {
-    document.getElementById('gst-field').classList.toggle('hidden', !e.target.checked);
+// Consumer Category -> reveal GST field for Commercial, and refresh the
+// subsidy calculation (since eligibility/slab depends on category)
+document.getElementById('f-consumerCategory').addEventListener('change', (e) => {
+    document.getElementById('gst-field').classList.toggle('hidden', e.target.value !== 'Commercial');
+    if (currentStep === 5) computeSavings();
 });
 
 /* ---------------- System Size dropdown with custom "Other" add ---------------- */
 const sizeSelect = document.getElementById('f-systemSize');
+
+/* Regenerates the BOQ for the newly selected capacity. If the user has
+   already customised the items (added/removed/edited rows beyond the
+   auto-generated defaults), ask for confirmation before overwriting —
+   otherwise just regenerate silently (fresh wizard / first pick). */
+function regenerateBoqForSelectedSize() {
+    const kw = getSelectedSizeKw();
+    const isDefaultSet = wizardItems.length === BOQ_TEMPLATE.length &&
+        wizardItems.every((it, i) => it.name === BOQ_TEMPLATE[i].name);
+    if (!isDefaultSet && wizardItems.length) {
+        if (!confirm(`Regenerate the BOQ for ${getSelectedSizeLabel()}? This will replace your current product list with standard quantities for this capacity.`)) return;
+    }
+    wizardItems = itemsForSize(kw);
+    renderItemsTable();
+    showToast(`BOQ auto-generated for ${getSelectedSizeLabel()}`, 'success');
+}
+
 sizeSelect.addEventListener('change', () => {
     if (sizeSelect.value === '__other__') {
         document.getElementById('other-size-wrap').classList.remove('hidden');
         document.getElementById('f-otherSize').focus();
     } else {
         document.getElementById('other-size-wrap').classList.add('hidden');
+        regenerateBoqForSelectedSize();
     }
 });
 
@@ -841,6 +1020,7 @@ document.getElementById('btn-add-size').addEventListener('click', () => {
     document.getElementById('other-size-wrap').classList.add('hidden');
     input.value = '';
     showToast(`Custom system size "${label}" added`, 'success');
+    regenerateBoqForSelectedSize();
 });
 
 function getSelectedSizeLabel() {
@@ -901,27 +1081,60 @@ function computeGstSummary() {
 }
 ['f-gstPercent', 'f-discountType', 'f-discountValue'].forEach(id => document.getElementById(id).addEventListener('input', computeGstSummary));
 
-/* ---------------- Energy & Savings (Step 5) ---------------- */
+/* ---------------- PM Surya Ghar Subsidy + Savings Calculator (Step 5) ---------------- */
 function computeSavings() {
+    const category = document.getElementById('f-consumerCategory').value;
     const sizeKw = getSelectedSizeKw();
     const tariff = parseFloat(document.getElementById('f-tariff').value) || 0;
-    const subsidy = parseFloat(document.getElementById('f-subsidy').value) || 0;
+    const escalation = parseFloat(document.getElementById('f-escalation').value) || 0;
     const { total } = computeGstSummary();
 
-    const annualUnits = sizeKw * 4 * 365;
+    // ----- Subsidy Calculator -----
+    const subsidy = computeSubsidy(category, sizeKw);
+    const netInvestment = Math.max(0, total - subsidy);
+
+    const categoryLabel = category === 'GHS' ? 'Group Housing Society / RWA' : category;
+    const noteEl = document.getElementById('subsidy-category-note');
+    if (noteEl) {
+        noteEl.innerHTML = category === 'Commercial'
+            ? '<i class="fas fa-circle-info"></i> Commercial / Institutional consumers are not eligible for the PM Surya Ghar central subsidy (CFA). They may separately avail accelerated depreciation and GST input benefits.'
+            : `<i class="fas fa-circle-info"></i> Subsidy calculated per PM Surya Ghar official slabs for ${categoryLabel} consumers (MNRE, pmsuryaghar.gov.in).`;
+    }
+
+    document.getElementById('summary-subsidy').innerHTML = `
+        <div class="row"><span>Consumer Category</span><b>${categoryLabel}</b></div>
+        <div class="row"><span>System Capacity</span><b>${sizeKw} kW</b></div>
+        <div class="row"><span>Total System Cost</span><b>${formatINR(total)}</b></div>
+        <div class="row"><span>Government Subsidy</span><b>- ${formatINR(subsidy)}</b></div>
+        <div class="row total"><span>Net Investment / Customer Payable Amount</span><b>${formatINR(netInvestment)}</b></div>
+    `;
+
+    // ----- Savings Calculator -----
+    const annualUnits = sizeKw * SAVINGS_CONFIG.unitsPerKwPerDay * 365;
     const annualSavings = annualUnits * tariff;
     const monthlySavings = annualSavings / 12;
-    const finalPayable = Math.max(0, total - subsidy);
+
+    const { totalSavings: savings25yr } = computeMultiYearSavings(annualUnits, tariff, escalation);
+    const carbonPerYearKg = annualUnits * SAVINGS_CONFIG.co2FactorKgPerKwh;
+    const carbon25yrTonnes = (carbonPerYearKg * SAVINGS_CONFIG.projectionYears) / 1000;
+
+    const roiPercent = netInvestment > 0 ? (annualSavings / netInvestment) * 100 : 0;
+    const paybackYears = annualSavings > 0 ? netInvestment / annualSavings : 0;
 
     document.getElementById('summary-savings').innerHTML = `
-        <div class="row"><span>Estimated Annual Generation</span><b>${Math.round(annualUnits).toLocaleString('en-IN')} kWh</b></div>
-        <div class="row"><span>Estimated Monthly Savings</span><b>${formatINR(monthlySavings)}</b></div>
-        <div class="row"><span>Estimated Annual Savings</span><b>${formatINR(annualSavings)}</b></div>
-        <div class="row"><span>Subsidy Applied</span><b>- ${formatINR(subsidy)}</b></div>
-        <div class="row total"><span>Final Payable Amount</span><b>${formatINR(finalPayable)}</b></div>
+        <div class="row"><span>Estimated Annual Electricity Generation</span><b>${Math.round(annualUnits).toLocaleString('en-IN')} kWh</b></div>
+        <div class="row"><span>Estimated Monthly Electricity Savings</span><b>${formatINR(monthlySavings)}</b></div>
+        <div class="row"><span>Estimated Annual Savings (Year 1)</span><b>${formatINR(annualSavings)}</b></div>
+        <div class="row"><span>25-Year Savings Estimate</span><b>${formatINR(savings25yr)}</b></div>
+        <div class="row"><span>Carbon Emission Reduction (per year)</span><b>${(carbonPerYearKg / 1000).toFixed(2)} tCO₂</b></div>
+        <div class="row"><span>Carbon Emission Reduction (25 years)</span><b>${carbon25yrTonnes.toFixed(1)} tCO₂</b></div>
+        <div class="row"><span>Return on Investment (Annual)</span><b>${roiPercent.toFixed(1)}%</b></div>
+        <div class="row total"><span>Payback Period</span><b>${paybackYears.toFixed(1)} years</b></div>
     `;
+
+    return { subsidy, netInvestment, annualUnits, annualSavings, savings25yr, carbonPerYearKg, carbon25yrTonnes, roiPercent, paybackYears };
 }
-['f-tariff', 'f-subsidy'].forEach(id => document.getElementById(id).addEventListener('input', computeSavings));
+['f-tariff', 'f-escalation'].forEach(id => document.getElementById(id).addEventListener('input', computeSavings));
 
 /* ---------------- Build draft record + render preview (Step 6) ---------------- */
 function collectWizardRecord(quoteNo) {
@@ -946,7 +1159,8 @@ function collectWizardRecord(quoteNo) {
             state: document.getElementById('f-state').value,
             pincode: document.getElementById('f-pincode').value.trim(),
             consumerNo: document.getElementById('f-consumerNo').value.trim(),
-            commercial: document.getElementById('f-commercial').checked,
+            consumerCategory: document.getElementById('f-consumerCategory').value,
+            commercial: document.getElementById('f-consumerCategory').value === 'Commercial',
             gst: document.getElementById('f-gst').value.trim()
         },
         systemSizeKw: getSelectedSizeKw(),
@@ -957,7 +1171,7 @@ function collectWizardRecord(quoteNo) {
         costs,
         gstPercent, discountType, discountValue,
         tariff: parseFloat(document.getElementById('f-tariff').value) || 0,
-        subsidy: parseFloat(document.getElementById('f-subsidy').value) || 0,
+        escalation: parseFloat(document.getElementById('f-escalation').value) || 0,
         advance: 0,
         ...totals,
         amount: Math.round(totals.total),
@@ -965,11 +1179,35 @@ function collectWizardRecord(quoteNo) {
     };
 }
 
+/* Attaches the computed subsidy + savings figures (PM Surya Ghar
+   Subsidy Calculator + Savings Calculator) onto a quotation record so
+   they can be shown on the generated invoice/PDF. */
+function attachSubsidyAndSavings(record) {
+    const sizeKw = record.systemSizeKw;
+    const subsidy = computeSubsidy(record.customer.consumerCategory, sizeKw);
+    const netInvestment = Math.max(0, record.total - subsidy);
+    const annualUnits = sizeKw * SAVINGS_CONFIG.unitsPerKwPerDay * 365;
+    const annualSavings = annualUnits * record.tariff;
+    const { totalSavings: savings25yr } = computeMultiYearSavings(annualUnits, record.tariff, record.escalation);
+    const carbonPerYearKg = annualUnits * SAVINGS_CONFIG.co2FactorKgPerKwh;
+    record.subsidy = subsidy;
+    record.netInvestment = netInvestment;
+    record.annualUnits = annualUnits;
+    record.annualSavings = annualSavings;
+    record.monthlySavings = annualSavings / 12;
+    record.savings25yr = savings25yr;
+    record.carbonPerYearKg = carbonPerYearKg;
+    record.carbon25yrTonnes = (carbonPerYearKg * SAVINGS_CONFIG.projectionYears) / 1000;
+    record.roiPercent = netInvestment > 0 ? (annualSavings / netInvestment) * 100 : 0;
+    record.paybackYears = annualSavings > 0 ? netInvestment / annualSavings : 0;
+    return record;
+}
+
 let draftQuoteNo = null;
 
 function renderWizardPreview() {
     draftQuoteNo = draftQuoteNo || nextQuoteNo();
-    const record = collectWizardRecord(draftQuoteNo);
+    const record = attachSubsidyAndSavings(collectWizardRecord(draftQuoteNo));
     document.getElementById('invoice-preview').innerHTML = buildInvoiceMarkup(record);
 }
 
@@ -978,7 +1216,7 @@ document.getElementById('btn-generate').addEventListener('click', () => {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generating...';
 
-    const record = collectWizardRecord(draftQuoteNo || nextQuoteNo());
+    const record = attachSubsidyAndSavings(collectWizardRecord(draftQuoteNo || nextQuoteNo()));
     quotations.unshift(record);
     draftQuoteNo = null;
 
@@ -1013,5 +1251,5 @@ document.getElementById('btn-generate').addEventListener('click', () => {
 });
 
 /* ---------------- Init ---------------- */
-buildQuickAddChips();
+populateProductPicker();
 renderTable();
